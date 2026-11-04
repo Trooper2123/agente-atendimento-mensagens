@@ -96,12 +96,12 @@ class Agent:
         if not query:
             return Reply("Como posso ajudar com nossos instrumentos?", [])
         norm = set(tokens(query))
-        if {"pedido", "rastreamento", "rastrear", "entrega"} & norm and ("pedido" in norm or re.search(r"\b(rastrear|rastreamento)\b", query, re.I)):
-            reply = self._order_response(query, email)
-        elif {"reclamacao", "reclamar", "problema"} & norm:
+        if {"reclamacao", "reclamar", "problema"} & norm:
             reply = Reply("Sinto muito pelo ocorrido. Vou indicar o encaminhamento para nossa equipe responsável. "
                           "O retorno previsto no manual é de até 24 horas úteis; "
                           "este protótipo não registra chamados automaticamente.", ["Manual: p. 7"], True)
+        elif {"pedido", "rastreamento", "rastrear", "entrega"} & norm and ("pedido" in norm or re.search(r"\b(rastrear|rastreamento)\b", query, re.I)):
+            reply = self._order_response(query, email)
         elif {"corda", "cordas", "palheta", "cabo", "cabos", "pedal", "amplificador", "case", "acessorio"} & norm and not ({"violao", "guitarra", "baixo", "instrumento"} & norm):
             reply = Reply("Trabalhamos exclusivamente com instrumentos musicais, não com acessórios como cordas, cabos, palhetas ou amplificadores.", ["Manual: p. 2 e 6"])
         elif {"guitarra", "violao", "baixo", "bateria", "teclado", "piano", "ukulele", "yamaha", "fender", "produto", "preco", "estoque", "promocao", "desconto"} & norm:
