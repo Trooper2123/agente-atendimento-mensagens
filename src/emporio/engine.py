@@ -30,7 +30,6 @@ class Agent:
         self.provider = (provider or os.getenv("MODEL_PROVIDER", "mock")).lower()
         if self.provider not in ("mock", "openai"):
             raise ValueError("MODEL_PROVIDER deve ser mock ou openai")
-        self.history: list[dict[str, str]] = []
 
     def _products(self, query: str) -> list[dict]:
         query_words = set(tokens(query)) - {"produto", "instrumento", "preco", "estoque", "quanto", "custa", "comprar", "disponivel", "disponibilidade", "promocao", "desconto", "gostaria", "buscar", "mostrar", "procurando"}
@@ -117,9 +116,6 @@ class Agent:
                 excerpt = passages[0]["text"][:560]
                 reply = Reply("No manual da loja consta:\n" + excerpt + "\nSe houver dúvida sobre a aplicação da regra, a gerência deve confirmar.",
                               [f"Manual: p. {p['page']}" for p in passages])
-        self.history.append({"role": "user", "content": query})
-        self.history.append({"role": "assistant", "content": reply.message})
-        self.history = self.history[-12:]
         return reply
 
     def _llm(self, query: str, passages: list[dict]) -> Reply:
