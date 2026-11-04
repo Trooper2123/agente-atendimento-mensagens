@@ -17,6 +17,7 @@ class Reply:
     message: str
     sources: list[str]
     handoff: bool = False
+    product_id: str | None = None
 
 
 def brl(value: Decimal | str) -> str:
@@ -79,6 +80,29 @@ class Agent:
         return [product for _, product in ranked]
 
     @staticmethod
+    def _product_code(name: str) -> str | None:
+        """Extrai marca + referência, incluindo códigos como RC-104 e C40."""
+        normalized = unicodedata.normalize("NFKD", name.casefold())
+        words = re.findall(r"[a-z0-9]+", "".join(c for c in normalized if not unicodedata.combining(c)))
+        if len(words) >= 2 and any(char.isdigit() for char in words[1]):
+            return " ".join(words[:2])
+        if len(words) >= 3 and any(char.isdigit() for char in words[2]):
+            return " ".join(words[:3])
+        return None
+
+    def _exact_product(self, query: str) -> dict | None:
+        normalized = unicodedata.normalize("NFKD", query.casefold())
+        query_text = " ".join(re.findall(
+            r"[a-z0-9]+", "".join(c for c in normalized if not unicodedata.combining(c))
+        ))
+        matches = []
+        for product in self.source.rows("products"):
+            code = self._product_code(product["name"])
+            if code and re.search(r"(?<!\\w)" + re.escape(code) + r"(?!\\w)", query_text):
+                matches.append(product)
+        return matches[0] if len(matches) == 1 else None
+
+    @staticmethod
     def _valid_decimal(raw: str, *, max_value: Decimal | None = None) -> Decimal:
         try:
             value = Decimal(str(raw))
@@ -94,8 +118,12 @@ class Agent:
             raise ValueError("estoque inválido")
         return int(raw)
 
-    def _product_response(self, query: str) -> Reply | None:
-        matched = self._products(query)
+    def _product_response(self, query: str, *, selected_product_id: str | None = None) -> Reply | None:
+        exact = self._exact_product(query)
+        matched = [exact] if exact else self._products(query)
+        if not matched and selected_product_id:
+            matched = [p for p in self.source.rows("products")
+                       if p["product_id"] == selected_product_id]
         if not matched:
             return None
         promos = self.source.rows("promotions")
@@ -135,8 +163,16 @@ class Agent:
         if not lines:
             return Reply("Não encontrei instrumentos que atendam aos filtros de preço e disponibilidade. "
                          "Quer tentar outra faixa de valor?", ["CSV: products", "CSV: promotions"])
+        if len(lines) == 1 and (exact or selected_product_id):
+            product = matched[0]
+            details = product.get("description", "").strip()
+            if details:
+                lines.append(f"Descrição: {details}")
+            return Reply("\n".join(lines) + "\nPosso ajudar com mais alguma informação?",
+                         ["CSV: products", "CSV: promotions", "Manual: p. 3 e 6"],
+                         product_id=product["product_id"])
         return Reply("Temos estas opções:\n" + "\n".join(lines)
-                     + "\nQuer mais detalhes de algum modelo?",
+                     + "\nQual modelo você gostaria de conhecer melhor?",
                      ["CSV: products", "CSV: promotions", "Manual: p. 3 e 6"])
 
     def _order_response(self, query: str, email: str | None) -> Reply:
@@ -158,7 +194,7 @@ class Agent:
             details += f" Previsão cadastrada: {order['estimated_delivery']} (sujeita a atualização)."
         return Reply(details, ["CSV: orders", "CSV: customers"])
 
-    def ask(self, message: str, *, email: str | None = None) -> Reply:
+    def ask(self, message: str, *, email: str | None = None, selected_product_id: str | None = None) -> Reply:
         query = message.strip()[:1500]
         if not query:
             return Reply("Como posso ajudar com nossos instrumentos?", [])
@@ -171,12 +207,23 @@ class Agent:
             reply = self._order_response(query, email)
         elif {"corda", "cordas", "palheta", "cabo", "cabos", "pedal", "amplificador", "case", "acessorio"} & norm and not ({"violao", "guitarra", "baixo", "instrumento"} & norm):
             reply = Reply("Trabalhamos exclusivamente com instrumentos musicais, não com acessórios como cordas, cabos, palhetas ou amplificadores.", ["Manual: p. 2 e 6"])
-        elif {"pix", "pagamento", "parcelamento", "parcela", "parcelas", "garantia", "devolucao", "arrependimento", "troca", "trocas", "frete"} & norm:
+        elif {"garantia", "devolucao", "arrependimento", "troca", "trocas", "frete", "parcelamento", "parcela", "parcelas"} & norm:
+            reply = self._policy_response(query)
+        elif "pix" in norm and (self._products(query) or selected_product_id):
+            reply = self._product_response(query, selected_product_id=selected_product_id)
+        elif {"pix", "pagamento"} & norm:
+            reply = self._policy_response(query)
+        elif self._exact_product(query):
+            reply = self._product_response(query, selected_product_id=selected_product_id)
+
             reply = self._policy_response(query)
         elif {"guitarra", "violao", "baixo", "bateria", "teclado", "piano", "ukulele", "yamaha", "fender", "produto", "preco", "estoque", "promocao", "desconto", "modelo", "disponivel"} & norm:
             reply = self._product_response(query) or Reply("Não encontrei um modelo correspondente no catálogo atual. Qual instrumento ou marca você procura?", ["CSV: products"])
         else:
-            reply = self._policy_response(query)
+            reply = self._product_response(query, selected_product_id=selected_product_id) if (
+                selected_product_id and
+                {"preco", "valor", "custa", "desconto", "estoque", "detalhes", "informacoes", "modelo"} & norm
+            ) else self._policy_response(query)
         return reply
 
     def _policy_response(self, query: str) -> Reply:
