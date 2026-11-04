@@ -5,7 +5,7 @@ import os
 import re
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from emporio.data import DataSource
 from emporio.retrieval import PolicyIndex, tokens
@@ -43,6 +43,22 @@ class Agent:
         ranked.sort(key=lambda x: (-x[0], x[1]["name"]))
         return [p for _, p in ranked[:5]]
 
+    @staticmethod
+    def _valid_decimal(raw: str, *, max_value: Decimal | None = None) -> Decimal:
+        try:
+            value = Decimal(str(raw))
+        except (InvalidOperation, ValueError, TypeError) as exc:
+            raise ValueError("valor numérico inválido") from exc
+        if not value.is_finite() or value < 0 or (max_value is not None and value > max_value):
+            raise ValueError("valor numérico fora dos limites")
+        return value
+
+    @staticmethod
+    def _valid_stock(raw: str) -> int:
+        if not re.fullmatch(r"\d+", str(raw)):
+            raise ValueError("estoque inválido")
+        return int(raw)
+
     def _product_response(self, query: str) -> Reply | None:
         matched = self._products(query)
         if not matched:
@@ -51,16 +67,20 @@ class Agent:
         lines = []
         for p in matched:
             status = p["status"]
-            qty = int(p["stock_quantity"])
+            try:
+                qty = self._valid_stock(p["stock_quantity"])
+                price = self._valid_decimal(p["price_brl"])
+                active = [self._valid_decimal(x["discount_percent"], max_value=Decimal("100"))
+                          for x in promos if x["product_id"] == p["product_id"] and x["is_active"] == "1"]
+            except (ValueError, KeyError):
+                return Reply("Não consigo confirmar preço ou estoque deste instrumento. "
+                             "Nossa equipe precisa verificar os dados.", ["CSV: products", "CSV: promotions"], True)
             if status == "discontinued":
                 availability = "descontinuado"
             elif status != "active":
                 availability = "não disponível para venda no momento"
             else:
                 availability = f"{qty} em estoque" if qty > 0 else "temporariamente esgotado"
-            price = Decimal(p["price_brl"])
-            active = [Decimal(x["discount_percent"]) for x in promos
-                      if x["product_id"] == p["product_id"] and x["is_active"] == "1"]
             if active and status == "active":
                 discount = max(active)
                 final = price * (Decimal("1") - discount / 100)
