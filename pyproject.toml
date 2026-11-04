@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "emporio-agente"
+version = "0.1.0"
+description = "Assistente de atendimento da Empório da Música com consultas verificáveis"
+requires-python = ">=3.11"
+dependencies = ["flet>=0.27,<1", "pymupdf>=1.24,<2", "openai>=1.50,<3", "python-dotenv>=1,<2"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10", "ruff>=0.9,<1"]
+
+[project.scripts]
+emporio = "emporio.app:run"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
