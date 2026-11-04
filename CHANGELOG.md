@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased] — 2026-11-04 (BRT)
+- `fix`: caminhos relativos de dados, SQLite, PDF e `.env` resolvidos pela raiz do projeto ou pasta de executável empacotado (`src/emporio/data.py`, `src/emporio/app.py`).
+- `test`: adicionados testes para execução fora da raiz, override de caminho absoluto e modo executável (`tests/test_paths.py`); 26 testes passaram localmente, compilação Python aprovada; interface `.exe` e Ruff não verificados.
+- `docs`: README documenta organização local dos arquivos e execução como `.exe`.
 - `security`: adicionada regra `data/` ao `.gitignore` e excluídos da árvore atual os seis CSVs operacionais e o PDF interno na branch `develop` (`.gitignore`, `data/*`). Os objetos continuam no histórico público antigo e na branch `main`.
 - `test`: suíte equivalente local com 23 testes aprovada; compilação Python aprovada. Ruff não instalado, verificação pendente.
 - `refactor`: removido histórico duplicado sem uso (`src/emporio/engine.py`).
