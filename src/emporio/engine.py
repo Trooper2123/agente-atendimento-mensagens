@@ -52,6 +52,8 @@ class Agent:
             "ukuleles": "ukulele", "instrumentos": "instrumento",
             "disponiveis": "disponivel", "modelos": "modelo",
             "promocoes": "promocao", "ofertas": "oferta",
+            "atendentes": "atendente", "vendedores": "vendedor",
+            "vendedora": "vendedor", "vendedoras": "vendedor",
         }
         return {aliases.get(t, t) for t in tokens(value)}
 
@@ -351,6 +353,11 @@ class Agent:
             (order_step in ("number", "identify") and bool(re.fullmatch(r"\s*#?\d{1,8}\s*", query)))
             or (order_step == "email" and (self._email_from_text(query) is not None or bool(re.fullmatch(r"\s*#?\d{1,8}\s*", query))))
         )
+        attendant_request = (
+            bool({"atendente", "vendedor", "humano"} & norm)
+            or bool({"falar", "chamar", "conversar", "transferir"} & norm and {"atendimento", "equipe", "pessoa", "alguem", "loja"} & norm)
+            or bool("atendimento" in norm and {"contato", "contatar", "contactar"} & norm and not ({"como", "qual", "quais"} & set(tokens(query))))
+        )
         if {"reclamacao", "reclamar", "problema"} & norm:
             reply = Reply(
                 "Sinto muito pelo ocorrido. Posso orientar você a falar com nossa equipe "
@@ -358,6 +365,8 @@ class Agent:
                 "este protótipo não abre chamados automaticamente.",
                 ["Manual: p. 7"], True,
             )
+        elif attendant_request:
+            reply = self._attendant_response()
         elif order_request or order_followup:
             reply = self._order_response(query, order_step=order_step, order_id=order_id)
         elif {"contato", "contatar", "contactar", "telefone", "ligar", "email",
@@ -387,6 +396,15 @@ class Agent:
                 {"preco", "valor", "custa", "desconto", "estoque", "detalhes", "informacoes", "modelo"} & norm
             ) else self._policy_response(query)
         return reply
+
+    def _attendant_response(self) -> Reply:
+        return Reply(
+            "O redirecionamento da conversa não está ativo neste canal. "
+            "Para falar com nossa equipe de atendimento ou com um vendedor, "
+            "por favor entre em contato pelo telefone da loja: (67) 3341-4444.",
+            ["Manual: p. 1 e 2"],
+            handoff=True,
+        )
 
     def _contact_response(self, query: str) -> Reply:
         """Contatos conferidos; não afirmar número de WhatsApp conflitante."""
