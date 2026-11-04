@@ -19,11 +19,11 @@ def tokens(text: str) -> list[str]:
 class PolicyIndex:
     def __init__(self, pdf_path: str | Path):
         try:
-            import fitz
+            import pymupdf
         except ImportError as exc:
             raise RuntimeError("Instale pymupdf para ler o manual") from exc
         self.chunks: list[tuple[int, str]] = []
-        with fitz.open(pdf_path) as pdf:
+        with pymupdf.open(pdf_path) as pdf:
             for number, page in enumerate(pdf, 1):
                 text = page.get_text(sort=True)
                 blocks = re.split(r"\n\s*\n", text)
