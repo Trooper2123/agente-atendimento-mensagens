@@ -252,7 +252,9 @@ class Agent:
         if not query:
             return Reply("Como posso ajudar com nossos instrumentos?", [])
         norm = self._catalog_words(query)
-        if {"promocao", "oferta"} & norm and {"ativa", "ativas", "vigente", "vigentes", "agora", "hoje", "mes"} & norm:
+        if {"contato", "contatar", "contactar", "telefone", "ligar", "email", "whatsapp", "endereco", "localizacao"} & norm:
+            reply = self._contact_response(query)
+        elif {"promocao", "oferta"} & norm and {"ativa", "ativas", "vigente", "vigentes", "agora", "hoje", "mes"} & norm:
             reply = self._promotions_response()
         elif {"promocao", "oferta"} & norm and not self._products(query):
             reply = self._promotions_response()
@@ -284,6 +286,28 @@ class Agent:
                 {"preco", "valor", "custa", "desconto", "estoque", "detalhes", "informacoes", "modelo"} & norm
             ) else self._policy_response(query)
         return reply
+
+    def _contact_response(self, query: str) -> Reply:
+        """Contatos conferidos; não afirmar número de WhatsApp conflitante."""
+        terms = self._catalog_words(query)
+        if "endereco" in terms or "localizacao" in terms:
+            return Reply(
+                "Estamos na Rua 14 de Maio, 3200 — Centro, Campo Grande - MS, "
+                "CEP 79202-333.", ["Manual: p. 1 e 2"],
+            )
+        if "whatsapp" in terms:
+            return Reply(
+                "Nosso telefone é (67) 3341-4444 e o e-mail é "
+                "contato@emporiodamusica.com.br. O número do WhatsApp "
+                "precisa ser confirmado pela equipe.", ["Manual: p. 1, 2 e 6"], True,
+            )
+        return Reply(
+            "Você pode entrar em contato pelo telefone (67) 3341-4444 "
+            "ou pelo e-mail contato@emporiodamusica.com.br. "
+            "Estamos na Rua 14 de Maio, 3200 — Centro, Campo Grande - MS. "
+            "O número do WhatsApp está em confirmação.",
+            ["Manual: p. 1, 2 e 6"], True,
+        )
 
     def _hours_response(self, query: str) -> Reply:
         """Horário publicado no manual, sem inferir exceções de datas especiais."""
