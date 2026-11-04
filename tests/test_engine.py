@@ -204,3 +204,61 @@ def test_catalog_cache_is_snapshot_and_reloadable(source):
     assert source.rows("products")[0]["stock_quantity"] == "7"
     assert "customers" not in source._catalog
     assert "orders" not in source._catalog
+
+
+def test_exact_model_and_product_followup(source):
+    update_row(source, "products", name="Rozini RC-104 Nylon Estudante",
+               price_brl="459.90", description="Violão clássico de estudo.",
+               stock_quantity="10")
+    a = agent(source)
+    initial = a.ask("Rozini RC-104")
+    assert initial.product_id == "p1"
+    assert "Violão clássico de estudo" in initial.message
+    assert "R$ 459,90" in initial.message
+    assert "PIX: R$ 436,91" in initial.message
+    continuation = a.ask("e o desconto PIX?", selected_product_id=initial.product_id)
+    assert continuation.product_id == "p1"
+    assert "R$ 436,91" in continuation.message
+    assert "No manual da loja" not in continuation.message
+
+
+def test_pix_on_named_brand_uses_catalog_not_manual(source):
+    update_row(source, "products", name="Rozini RC-104 Nylon Estudante",
+               price_brl="459.90")
+    reply = agent(source).ask("verifique desconto pix para o modelo Rozini")
+    assert "Rozini RC-104" in reply.message
+    assert "R$ 436,91" in reply.message
+    assert not reply.handoff
+    assert "CSV: products" in reply.sources
+
+
+def test_brand_then_model_selects_exact_product(source):
+    update_row(source, "products", name="Rozini RC-104 Nylon Estudante",
+               price_brl="459.90", description="Modelo para estudantes.")
+    a = agent(source)
+    first = a.ask("mais informações sobre o modelo Rozini")
+    assert "Rozini RC-104" in first.message
+    exact = a.ask("Rozini RC-104")
+    assert exact.product_id == "p1"
+    assert "Modelo para estudantes." in exact.message
+
+
+def test_generic_pix_policy_still_uses_manual(source):
+    reply = agent(source).ask("Qual o desconto no PIX?")
+    assert "Manual: p." in " ".join(reply.sources)
+    assert "CSV: products" not in reply.sources
+
+
+def test_product_warranty_not_mistaken_for_price(source):
+    update_row(source, "products", name="Rozini RC-104 Nylon Estudante")
+    reply = agent(source).ask("garantia do Rozini RC-104")
+    assert reply.handoff and "90 dias" in reply.message
+    assert reply.product_id is None
+
+
+def test_both_brand_and_model_are_required_for_exact_match(source):
+    update_row(source, "products", name="Rozini RC-104 Nylon Estudante")
+    a = agent(source)
+    reply = a.ask("Rozini")
+    assert reply.product_id is None
+    assert "Rozini" in reply.message
