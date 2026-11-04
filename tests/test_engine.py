@@ -388,6 +388,25 @@ def test_contact_questions_return_verified_channels(source, question):
     assert reply.handoff  # WhatsApp conflitante no manual, confirmação necessária.
 
 
+@pytest.mark.parametrize("question", [
+    "quero falar com um vendedor",
+    "atendente",
+    "falar com atendente",
+    "falar com atendimento",
+    "falar com um humano",
+    "atendimento humano",
+    "quero falar com uma pessoa",
+    "chamar atendente",
+    "entrar em contato com atendimento",
+])
+def test_request_attendant_redirects_to_store_phone(source, question):
+    reply = agent(source).ask(question)
+    assert "(67) 3341-4444" in reply.message
+    assert "redirecionamento da conversa não está ativo" in reply.message.casefold()
+    assert reply.handoff
+    assert reply.sources == ["Manual: p. 1 e 2"]
+
+
 def test_whatsapp_ambiguity_is_not_hidden(source):
     reply = agent(source).ask("qual o whatsapp da loja?")
     assert "precisa ser confirmado" in reply.message
