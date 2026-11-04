@@ -66,7 +66,7 @@ def main(page: ft.Page):
         ft.Text("Assistente demonstrativo • preços e disponibilidade consultados nos arquivos locais"),
         ft.Container(content=history, border=ft.Border.all(1, ft.Colors.BLUE_GREY_100), border_radius=12, padding=12, expand=True),
         email,
-        ft.Row([question, ft.ElevatedButton("Enviar", on_click=submit)]),
+        ft.Row([question, ft.Button("Enviar", on_click=submit)]),
         ft.TextButton("Atualizar catálogo", on_click=reload_catalog),
         ft.Text("Atenção: não realiza compras, reservas, alterações de pedidos nem abertura de chamados.", size=12),
     )
@@ -77,4 +77,4 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    run(main)
