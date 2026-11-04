@@ -23,6 +23,7 @@ Construir e manter um protótipo de assistente de atendimento por mensagens para
 - Respostas diretas, simples e úteis; evitar copiar blocos longos do manual.
 - Nunca usar as expressões "No manual da loja consta:" ou "Se houver dúvida sobre a aplicação da regra, a gerência deve confirmar.".
 - Quando necessário, oferecer: "Se tiver alguma dúvida, posso encaminhar você para um atendente humano.". Não afirmar que um encaminhamento foi feito sem integração real.
+- Solicitações de contato com atendimento ou vendedor direcionam para o telefone da loja: (67) 3341-4444, informando com clareza que o redirecionamento da conversa não está ativo no canal.
 - Referências ao manual ficam nas fontes técnicas, não no texto da resposta ao cliente.
 
 ## Políticas e segurança

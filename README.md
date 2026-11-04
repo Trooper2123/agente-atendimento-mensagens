@@ -151,6 +151,8 @@ Perguntas sobre horário são respondidas por regra explícita do manual (p. 2):
 ## Contato e endereço (2026-11-04)
 Perguntas como `como contatar a loja`, `telefone`, `e-mail` e `endereço` têm respostas diretas, sem mostrar trechos aleatórios do manual. Foram confirmados na capa e no cadastro do manual: telefone **(67) 3341-4444**, e-mail **contato@emporiodamusica.com.br** (capa) e endereço **Rua 14 de Maio, 3200 — Centro, Campo Grande - MS, CEP 79202-333**.
 
+Solicitações diretas para falar com atendente, vendedor ou atendimento humano (ex.: `quero falar com um vendedor`, `atendente`, `falar com um humano`) direcionam para o telefone da loja **(67) 3341-4444** e esclarecem com transparência que o redirecionamento automático da conversa não está ativo neste canal demonstrativo.
+
 **Atenção:** o próprio manual apresenta conflito entre o número indicado como telefone/WhatsApp nas páginas 1–2 e o canal principal de WhatsApp na página 6; além disso, há diferença na grafia do e-mail entre capa e cadastro. O assistente **não anuncia um WhatsApp específico como confirmado** até a loja validar o número. A resposta encaminha para conferência humana. A fonte de contato deverá ser consolidada no manual ou em configuração oficial da loja.
 
 

@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased] — 2026-11-04 (BRT)
+- `feat`: direcionamento de solicitações de contato com atendimento/vendedor para o telefone da loja ((67) 3341-4444), avisando com transparência que o redirecionamento da conversa não está ativo (`src/emporio/engine.py`).
+- `test`: testes parametrizados para pedidos de falar com atendente, vendedor ou equipe humana (`tests/test_engine.py`).
+- `docs`: README e AGENTS.md atualizados com a política de contato telefônico e aviso de redirecionamento inativo.
 - `feat`: verificação de todos os pedidos vinculados a um e-mail específico (consulta direta ou por fluxo conversacional perguntando "quantos pedidos tenho"), retornando contagem, situação, rastreio e notas (`src/emporio/engine.py`).
 - `fix`: fallback para timezone UTC-4 de Campo Grande em ambientes Windows sem o pacote `tzdata` (`src/emporio/engine.py`).
 - `test`: suíte completa com 66 testes cobrindo verificação de múltiplos pedidos por e-mail, e-mail inexistente, e-mail sem pedidos e integridade de isolamento (`tests/test_engine.py`).
