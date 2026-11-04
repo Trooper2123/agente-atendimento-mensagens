@@ -1,6 +1,10 @@
 # Changelog
 
 ## [Unreleased] — 2026-11-04 (BRT)
+- `fix`: consultas de pedidos via etapas no próprio chat, aceitando número + e-mail na mesma mensagem, sem campo separado no Flet (`engine.py`, `app.py`).
+- `security`: interface mascara endereços de e-mail exibidos e não retém o e-mail no estado da sessão; exige combinação número + e-mail e mantém ressalva sobre autenticação forte.
+- `test`: regressões para consulta sequencial, e-mail incorreto, pedido em uma mensagem, reclamações e mudança de assunto.
+- `docs`: README descreve a limitação de consultas por e-mail, riscos de privacidade e necessidade de OTP/login para produção.
 - `style`: respostas de políticas mais naturais; removidos cabeçalhos internos e frase de confirmação pela gerência, substituídos por oferta de atendimento humano (`src/emporio/engine.py`).
 - `test`: validação do tom das respostas e limite de trecho no modo sem LLM (`tests/test_engine.py`).
 - `docs`: diretrizes de tom registradas no AGENTS.md e README.
