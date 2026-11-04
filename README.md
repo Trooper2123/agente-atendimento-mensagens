@@ -50,7 +50,7 @@ O modelo é chamado **apenas em dúvidas sobre políticas**; preços, descontos,
 | Consulta determinística de negócios | O LLM não cria preços, frete, estoque, status nem códigos de rastreio. Promoções consideram `is_active`; desconto PIX só sobre preço sem promoção. |
 | Prompt com contexto recuperado | Orientação de tom, fontes delimitadas, proibição de inventar e aviso para escalar conflitos; não há fine-tuning nem memória durável. |
 | Fallback seguro | Erro no provedor não vira resposta fabricada; encaminha para atendimento humano. |
-| Histórico de conversa | Somente a interface Flet mantém mensagens visíveis durante a sessão; o motor não guarda histórico. |
+| Contexto de atendimento mínimo | A interface Flet mantém o identificador do último produto selecionado, sem duplicar histórico de mensagens no motor. |
 
 ### Fluxo
 `Flet -> Agent.ask -> classificador por regras -> {CSVSource/SQLiteSource, PolicyIndex} -> resposta determinística ou OpenAI -> UI + indicação de fontes`
@@ -127,3 +127,9 @@ O `.env` também deve ficar ao lado do projeto ou, no caso de executável empaco
 A busca reconhece categorias no singular e no plural (`violão/violões`, `guitarra/guitarras`) e filtra expressões como `disponíveis até R$ 1.000` pelo preço vigente. Não mistura a consulta de catálogo com trechos do manual de políticas.
 O adaptador CSV carrega em memória somente `categories`, `products` e `promotions` na primeira consulta, evitando reler esses arquivos em cada mensagem. `customers` e `orders` **não são mantidos nesse cache**, por privacidade.
 As alterações feitas nos CSVs não aparecem automaticamente: pressione **Atualizar catálogo** na interface (ou reinicie). Se a recarga falhar, a versão anterior é preservada. O cache é um snapshot local, **não é estoque em tempo real**; para produção, recomenda-se integração ao ERP/banco, com controle de atualização e concorrência.
+
+
+## Atendimento contextual por modelo (2026-11-04)
+O agente reconhece códigos completos de instrumento, como `Rozini RC-104`, mesmo sem categoria na mensagem. Ao identificar um modelo de maneira inequívoca, mostra descrição, preço, estoque e desconto PIX **consultados no catálogo**. A interface conserva apenas o `product_id` escolhido durante a sessão: perguntas como `e o desconto PIX?` usam esse item, sem armazenar conversas duplicadas ou dados de clientes.
+Perguntas genéricas sobre PIX continuam no fluxo de políticas. Quando o usuário informa somente uma marca com vários modelos, o agente apresenta as opções e solicita especificação, sem assumir qual produto deseja.
+Os preços seguem a regra de não cumulatividade: uma promoção ativa impede o desconto PIX adicional. O código do produto só é reconhecido como referência exata quando identifica unicamente um item do catálogo.
