@@ -19,6 +19,8 @@ class Reply:
     sources: list[str]
     handoff: bool = False
     product_id: str | None = None
+    order_step: str | None = None
+    order_id: str | None = None
 
 
 def brl(value: Decimal | str) -> str:
@@ -228,44 +230,92 @@ class Agent:
                      + "\nQual modelo você gostaria de conhecer melhor?",
                      ["CSV: products", "CSV: promotions", "Manual: p. 3 e 6"])
 
-    def _order_response(self, query: str, email: str | None) -> Reply:
-        match = re.search(r"(?:pedido\s*(?:n[º°o.]*)?\s*#?\s*)(\d{1,8})", query, re.I)
-        if not match:
-            return Reply("Informe o número do pedido e o e-mail cadastrado para consultar o andamento.", ["Manual: p. 7"])
+    @staticmethod
+    def _email_from_text(query: str) -> str | None:
+        match = re.search(r"(?<![\w.+-])[\w.+-]+@[\w.-]+\.[a-z]{2,}(?![\w.-])", query, re.I)
+        return match.group(0) if match else None
+
+    def _order_response(
+        self, query: str, *, order_step: str | None = None, order_id: str | None = None
+    ) -> Reply:
+        # Guardar na interface apenas o identificador não sensível, nunca o e-mail.
+        match = re.search(r"\bpedidos?\s*(?:n[º°o.]*\s*)?#?\s*(\d{1,8})\b", query, re.I)
+        number = match.group(1) if match else None
+        if not number and order_step == "number":
+            bare = re.fullmatch(r"\s*#?(\d{1,8})\s*", query)
+            number = bare.group(1) if bare else None
+        if not number and order_step == "email":
+            number = order_id
+
+        if not number:
+            return Reply(
+                "Claro! Para consultar o andamento, qual é o número do seu pedido? "
+                "Depois vou pedir o e-mail cadastrado.",
+                ["Manual: p. 7"], order_step="number",
+            )
+
+        email = self._email_from_text(query)
         if not email:
-            return Reply("Para proteger seus dados, informe também o e-mail cadastrado no pedido.", ["Manual: p. 7–8"])
-        order = next((r for r in self.source.rows("orders") if r["order_id"] == match.group(1)), None)
-        if not order:
-            return Reply("Não consegui validar o pedido com os dados informados. Posso encaminhar para atendimento humano.", ["CSV: orders"], True)
-        customer = next((r for r in self.source.rows("customers") if r["customer_id"] == order["customer_id"]), None)
+            return Reply(
+                f"Obrigado! Agora me informe o e-mail cadastrado no pedido {number}, por favor.",
+                ["Manual: p. 7–8"], order_step="email", order_id=number,
+            )
+
+        order = next(
+            (r for r in self.source.rows("orders") if r["order_id"] == number), None
+        )
+        customer = None
+        if order:
+            customer = next(
+                (r for r in self.source.rows("customers")
+                 if r["customer_id"] == order["customer_id"]), None
+            )
         if not customer or customer["email"].casefold().strip() != email.casefold().strip():
-            return Reply("Não consegui validar o pedido com os dados informados. Posso encaminhar para atendimento humano.", ["CSV: orders/customers"], True)
-        details = f"Pedido {order['order_id']}: situação registrada como '{order['status']}'."
+            return Reply(
+                "Não consegui confirmar esse pedido com os dados informados. "
+                "Se quiser, posso encaminhar você para um atendente humano.",
+                ["CSV: orders", "CSV: customers"], True,
+            )
+        details = f"Encontrei o pedido {order['order_id']}! A situação atual é: {order['status']}."
         if order.get("tracking_code"):
             details += f" Código de rastreamento: {order['tracking_code']}."
         if order.get("estimated_delivery"):
             details += f" Previsão cadastrada: {order['estimated_delivery']} (sujeita a atualização)."
         return Reply(details, ["CSV: orders", "CSV: customers"])
 
-    def ask(self, message: str, *, email: str | None = None, selected_product_id: str | None = None) -> Reply:
+    def ask(
+        self, message: str, *, selected_product_id: str | None = None,
+        order_step: str | None = None, order_id: str | None = None,
+    ) -> Reply:
         query = message.strip()[:1500]
         if not query:
             return Reply("Como posso ajudar com nossos instrumentos?", [])
         norm = self._catalog_words(query)
-        if {"contato", "contatar", "contactar", "telefone", "ligar", "email", "whatsapp", "endereco", "localizacao"} & norm:
+        order_request = bool({"pedido", "pedidos", "rastreamento", "rastrear"} & norm)
+        order_followup = (
+            (order_step == "number" and bool(re.fullmatch(r"\s*#?\d{1,8}\s*", query)))
+            or (order_step == "email" and self._email_from_text(query) is not None)
+        )
+        if {"reclamacao", "reclamar", "problema"} & norm:
+            reply = Reply(
+                "Sinto muito pelo ocorrido. Posso orientar você a falar com nossa equipe "
+                "responsável. O prazo previsto para retorno é de até 24 horas úteis; "
+                "este protótipo não abre chamados automaticamente.",
+                ["Manual: p. 7"], True,
+            )
+        elif order_request or order_followup:
+            reply = self._order_response(query, order_step=order_step, order_id=order_id)
+        elif {"contato", "contatar", "contactar", "telefone", "ligar", "email",
+              "whatsapp", "endereco", "localizacao"} & norm:
             reply = self._contact_response(query)
         elif {"promocao", "oferta"} & norm and {"ativa", "ativas", "vigente", "vigentes", "agora", "hoje", "mes"} & norm:
             reply = self._promotions_response()
         elif {"promocao", "oferta"} & norm and not self._products(query):
             reply = self._promotions_response()
-        elif {"horario", "horarios", "funcionamento", "expediente", "abre", "aberto", "aberta", "fecha", "fechado", "fechada", "domingo", "domingos", "sabado", "sabados", "feriado", "feriados"} & norm:
+        elif {"horario", "horarios", "funcionamento", "expediente", "abre", "aberto",
+              "aberta", "fecha", "fechado", "fechada", "domingo", "domingos",
+              "sabado", "sabados", "feriado", "feriados"} & norm:
             reply = self._hours_response(query)
-        elif {"reclamacao", "reclamar", "problema"} & norm:
-            reply = Reply("Sinto muito pelo ocorrido. Vou indicar o encaminhamento para nossa equipe responsável. "
-                          "O retorno previsto no manual é de até 24 horas úteis; "
-                          "este protótipo não registra chamados automaticamente.", ["Manual: p. 7"], True)
-        elif {"pedido", "rastreamento", "rastrear", "entrega"} & norm and ("pedido" in norm or re.search(r"\b(rastrear|rastreamento)\b", query, re.I)):
-            reply = self._order_response(query, email)
         elif {"corda", "cordas", "palheta", "cabo", "cabos", "pedal", "amplificador", "case", "acessorio"} & norm and not ({"violao", "guitarra", "baixo", "instrumento"} & norm):
             reply = Reply("Trabalhamos exclusivamente com instrumentos musicais, não com acessórios como cordas, cabos, palhetas ou amplificadores.", ["Manual: p. 2 e 6"])
         elif {"garantia", "devolucao", "arrependimento", "troca", "trocas", "frete", "parcelamento", "parcela", "parcelas"} & norm:
