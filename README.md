@@ -73,6 +73,7 @@ Testes cobrem formatação de BRL, produto, proteção de pedido por e-mail, ace
 ## Limitações conhecidas e evolução
 - CSV é snapshot; não garante estoque/preço em tempo real nem validade temporal de promoções (`is_active` sem datas). Não há integração com ERP, WhatsApp Business API, gateways ou atendimento humano real.
 - Busca de produtos por tokens é simples; nomes com sinônimos, marcas não previstas ou pedidos genéricos podem falhar. Classificação por regras pode identificar intenções ambiguamente.
+- **Melhoria futura — busca por termos parciais:** reconhecer nomes reduzidos e prefixos de modelos (ex.: `Shelby SGD` → `Shelby SGD-195E`) com correspondência por prefixo, ranking, desambiguação e testes para evitar indicar modelos diferentes. Não implementado nesta entrega.
 - O índice do PDF é recriado na inicialização; a recuperação lexical pode retornar trechos pouco relacionados. Validar qualidade com conjunto de perguntas de avaliação antes de produção.
 - Respostas do modo OpenAI não têm verificador automático de entailment; não devem ser usadas para decisões legais sem supervisão.
 - Somente a interface Flet mantém a conversa visual durante a sessão; o motor não guarda mensagens. O provedor recebe a pergunta e trechos do manual (não recebe o e-mail em consultas de pedido, pois estas são determinísticas).
@@ -133,3 +134,7 @@ As alterações feitas nos CSVs não aparecem automaticamente: pressione **Atual
 O agente reconhece códigos completos de instrumento, como `Rozini RC-104`, mesmo sem categoria na mensagem. Ao identificar um modelo de maneira inequívoca, mostra descrição, preço, estoque e desconto PIX **consultados no catálogo**. A interface conserva apenas o `product_id` escolhido durante a sessão: perguntas como `e o desconto PIX?` usam esse item, sem armazenar conversas duplicadas ou dados de clientes.
 Perguntas genéricas sobre PIX continuam no fluxo de políticas. Quando o usuário informa somente uma marca com vários modelos, o agente apresenta as opções e solicita especificação, sem assumir qual produto deseja.
 Os preços seguem a regra de não cumulatividade: uma promoção ativa impede o desconto PIX adicional. O código do produto só é reconhecido como referência exata quando identifica unicamente um item do catálogo.
+
+
+## Horário de funcionamento
+Perguntas sobre horário são respondidas por regra explícita do manual (p. 2): segunda a sexta, 9h–18h; sábado, 9h–13h; domingos e feriados, fechado. Datas especiais podem alterar o horário e exigem confirmação; este protótipo não consulta calendário de exceções.
