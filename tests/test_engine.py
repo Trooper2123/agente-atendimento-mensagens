@@ -291,3 +291,19 @@ def test_brand_ambiguity_does_not_select_wrong_model(source):
     assert followup.product_id == "p1"
     assert "R$ 459,90" in followup.message
     assert "R$ 1.299,00" not in followup.message
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("horario de funcionamento aos domingos", "não abre aos domingos e feriados"),
+    ("Vocês abrem domingo?", "não abre aos domingos e feriados"),
+    ("Qual o horário de sábado?", "sábados, funcionamos das 9h às 13h"),
+    ("Que horas abre de segunda a sexta?", "segunda a sexta-feira, funcionamos das 9h às 18h"),
+    ("Qual o horário de funcionamento?", "Domingos e feriados, fechamos"),
+])
+def test_opening_hours_from_manual(source, question, expected):
+    a = agent(source)
+    reply = a.ask(question, selected_product_id="p1")
+    assert expected in reply.message
+    assert reply.sources == ["Manual: p. 2"]
+    assert "No manual da loja consta" not in reply.message
+    assert not reply.handoff
