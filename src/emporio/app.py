@@ -46,7 +46,7 @@ def main(page: ft.Page):
     page.add(
         ft.Text("Empório da Música", size=29, weight=ft.FontWeight.BOLD),
         ft.Text("Assistente demonstrativo • preços e disponibilidade consultados nos arquivos locais"),
-        ft.Container(content=history, border=ft.border.all(1, ft.Colors.BLUE_GREY_100), border_radius=12, padding=12, expand=True),
+        ft.Container(content=history, border=ft.Border.all(1, ft.Colors.BLUE_GREY_100), border_radius=12, padding=12, expand=True),
         email,
         ft.Row([question, ft.ElevatedButton("Enviar", on_click=submit)]),
         ft.Text("Atenção: não realiza compras, reservas, alterações de pedidos nem abertura de chamados.", size=12),
