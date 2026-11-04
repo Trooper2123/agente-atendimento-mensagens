@@ -365,3 +365,32 @@ def test_seasonal_promotion_not_applied_to_product_outside_month(source, monkeyp
     assert "R$ 1.000,00" in text
     assert "PIX: R$ 950,00" in text
     assert "R$ 900,00" not in text
+
+
+@pytest.mark.parametrize("question", [
+    "como contatar a loja",
+    "contato da loja",
+    "qual o telefone?",
+    "qual o email?",
+])
+def test_contact_questions_return_verified_channels(source, question):
+    reply = agent(source).ask(question, selected_product_id="p1")
+    assert "(67) 3341-4444" in reply.message
+    assert "contato@emporiodamusica.com.br" in reply.message
+    assert "No manual da loja consta:" not in reply.message
+    assert "CSV: products" not in reply.sources
+    assert reply.handoff  # WhatsApp conflitante no manual, confirmação necessária.
+
+
+def test_whatsapp_ambiguity_is_not_hidden(source):
+    reply = agent(source).ask("qual o whatsapp da loja?")
+    assert "precisa ser confirmado" in reply.message
+    assert "(67) 3321-4500" not in reply.message
+    assert reply.handoff
+
+
+def test_address_has_direct_answer(source):
+    reply = agent(source).ask("qual endereço da loja?")
+    assert "Rua 14 de Maio, 3200" in reply.message
+    assert "Campo Grande" in reply.message
+    assert not reply.handoff
