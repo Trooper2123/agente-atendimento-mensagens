@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased] — 2026-11-04 (BRT)
+- `style`: respostas de políticas mais naturais; removidos cabeçalhos internos e frase de confirmação pela gerência, substituídos por oferta de atendimento humano (`src/emporio/engine.py`).
+- `test`: validação do tom das respostas e limite de trecho no modo sem LLM (`tests/test_engine.py`).
+- `docs`: diretrizes de tom registradas no AGENTS.md e README.
 - `fix`: roteamento direto para perguntas de contato, telefone, e-mail, WhatsApp e endereço, sem trechos irrelevantes do manual (`src/emporio/engine.py`).
 - `test`: perguntas de contato e dados divergentes do WhatsApp cobertos por testes (`tests/test_engine.py`).
 - `docs`: documentada divergência dos canais de contato no manual e necessidade de confirmação humana.
