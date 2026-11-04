@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased] — 2026-11-04 (BRT)
+- `fix`: roteamento direto para perguntas de contato, telefone, e-mail, WhatsApp e endereço, sem trechos irrelevantes do manual (`src/emporio/engine.py`).
+- `test`: perguntas de contato e dados divergentes do WhatsApp cobertos por testes (`tests/test_engine.py`).
+- `docs`: documentada divergência dos canais de contato no manual e necessidade de confirmação humana.
 - `fix`: entrada Flet atualizada de `ft.app(target=main)` para `ft.run(main)`, removendo aviso de depreciação (`src/emporio/app.py`).
 - `fix`: consultas sobre promoções ativas usam CSV, disponibilidade e mês vigente das campanhas sazonais; reforçam desconto PIX de 5% não cumulativo (`src/emporio/engine.py`).
 - `test`: casos de campanhas dentro/fora do mês, promoções inativas, estoque zero, PIX e roteamento (`tests/test_engine.py`).
