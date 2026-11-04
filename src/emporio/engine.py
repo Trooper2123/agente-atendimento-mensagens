@@ -199,7 +199,9 @@ class Agent:
         if not query:
             return Reply("Como posso ajudar com nossos instrumentos?", [])
         norm = self._catalog_words(query)
-        if {"reclamacao", "reclamar", "problema"} & norm:
+        if {"horario", "horarios", "funcionamento", "expediente", "abre", "aberto", "aberta", "fecha", "fechado", "fechada", "domingo", "domingos", "sabado", "sabados", "feriado", "feriados"} & norm:
+            reply = self._hours_response(query)
+        elif {"reclamacao", "reclamar", "problema"} & norm:
             reply = Reply("Sinto muito pelo ocorrido. Vou indicar o encaminhamento para nossa equipe responsável. "
                           "O retorno previsto no manual é de até 24 horas úteis; "
                           "este protótipo não registra chamados automaticamente.", ["Manual: p. 7"], True)
@@ -225,6 +227,20 @@ class Agent:
                 {"preco", "valor", "custa", "desconto", "estoque", "detalhes", "informacoes", "modelo"} & norm
             ) else self._policy_response(query)
         return reply
+
+    def _hours_response(self, query: str) -> Reply:
+        """Horário publicado no manual, sem inferir exceções de datas especiais."""
+        words = self._catalog_words(query)
+        if {"domingo", "domingos", "feriado", "feriados"} & words:
+            message = "A loja não abre aos domingos e feriados."
+        elif {"sabado", "sabados"} & words:
+            message = "Aos sábados, funcionamos das 9h às 13h."
+        elif {"segunda", "terca", "quarta", "quinta", "sexta"} & words:
+            message = "De segunda a sexta-feira, funcionamos das 9h às 18h."
+        else:
+            message = ("Nosso horário é de segunda a sexta, das 9h às 18h, "
+                       "e sábado, das 9h às 13h. Domingos e feriados, fechamos.")
+        return Reply(message, ["Manual: p. 2"])
 
     def _policy_response(self, query: str) -> Reply:
         words = set(tokens(query))
