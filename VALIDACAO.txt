@@ -1,0 +1,8 @@
+Validação local em 2026-11-03 (BRT):
+- python -m compileall -q src tests: OK
+- PYTHONPATH=src python -m pytest -q: 7 passed
+- ruff check .: NÃO EXECUTADO (ruff não instalado)
+- Inicialização visual Flet: NÃO EXECUTADA (flet não instalado)
+- Integração com OpenAI: NÃO EXECUTADA (sem chave)
+- Conexão GitHub: get_repo retornou 404 (sem publicação)
+- Commits locais: 5; sem push/force-push
