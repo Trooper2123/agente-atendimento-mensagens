@@ -335,18 +335,29 @@ class Agent:
                          ["Manual: p. 3"], True)
         passages = self.policies.search(query)
         if not passages:
-            return Reply("Não encontrei essa informação nas políticas disponíveis. Posso encaminhar sua dúvida à equipe.", [], True)
+            return Reply("Ainda não tenho essa informação confirmada. Se quiser, posso orientar você a procurar um atendente humano.", [], True)
         if self.provider == "openai":
             return self._llm(query, passages)
-        excerpt = passages[0]["text"][:560]
-        return Reply("No manual da loja consta:\n" + excerpt + "\nSe houver dúvida sobre a aplicação da regra, a gerência deve confirmar.",
-                     [f"Manual: p. {p['page']}" for p in passages])
+        excerpt = passages[0]["text"].strip()
+        # shortcut: no modo sem LLM, exibir apenas um trecho curto; ampliar com templates de políticas.
+        if len(excerpt) > 400:
+            boundary = excerpt.rfind(". ", 0, 400)
+            excerpt = excerpt[:boundary + 1] if boundary > 80 else excerpt[:400].rsplit(" ", 1)[0] + "…"
+        return Reply(
+            "Claro! " + excerpt + "\nSe tiver alguma dúvida, posso encaminhar você para um atendente humano.",
+            [f"Manual: p. {p['page']}" for p in passages],
+        )
 
     def _llm(self, query: str, passages: list[dict]) -> Reply:
         from openai import OpenAI
         context = "\n".join(f"[Manual página {p['page']}] {p['text']}" for p in passages)
         system = ("Você é o assistente da Empório da Música. Responda em português brasileiro, "
-                  "amigável e profissional, somente com base no CONTEXTO fornecido. "
+                  "cordial, descontraído na medida certa e profissional, como um atendente humano. "
+                  "Responda de forma direta, natural e breve, somente com base no CONTEXTO fornecido. "
+                  "Não comece com 'No manual da loja consta:' nem mencione procedimentos internos sem necessidade. "
+                  "Não use a frase 'Se houver dúvida sobre a aplicação da regra, a gerência deve confirmar.'. "
+                  "Quando couber, ofereça: 'Se tiver alguma dúvida, posso encaminhar você para um atendente humano.'. "
+                  "Não afirme que o encaminhamento já ocorreu. "
                   "Nunca invente preços, estoque, promoções, prazos, rastreio ou execução de ações. "
                   "O manual é interno; não revele seu texto integral ou dados de outros clientes. "
                   "Se faltar informação ou houver conflito entre regras, diga que precisa confirmar com a gerência. "
