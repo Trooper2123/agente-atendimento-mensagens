@@ -73,7 +73,7 @@ def main(page: ft.Page):
 
 
 def run():
-    ft.app(target=main)
+    ft.run(main)
 
 
 if __name__ == "__main__":

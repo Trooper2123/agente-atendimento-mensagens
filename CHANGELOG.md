@@ -1,6 +1,7 @@
 # Changelog
 
 ## [Unreleased] — 2026-11-04 (BRT)
+- `fix`: entrada Flet atualizada de `ft.app(target=main)` para `ft.run(main)`, removendo aviso de depreciação (`src/emporio/app.py`).
 - `fix`: consultas sobre promoções ativas usam CSV, disponibilidade e mês vigente das campanhas sazonais; reforçam desconto PIX de 5% não cumulativo (`src/emporio/engine.py`).
 - `test`: casos de campanhas dentro/fora do mês, promoções inativas, estoque zero, PIX e roteamento (`tests/test_engine.py`).
 - `docs`: documentadas limitações dos CSVs sem datas de vigência e regras sazonais no README.
