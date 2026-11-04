@@ -1,6 +1,6 @@
 # Agente de atendimento — Empório da Música
 
-Protótipo de assistente de atendimento **em português brasileiro**, com motor em Python e interface desktop Flet. Responde sobre produtos/preços/estoque consultando os CSVs e sobre políticas consultando o manual interno. Consulta pedidos apenas após cruzar número e e-mail cadastrado. A aplicação é **somente leitura**: não realiza compras, reservas nem cria chamados.
+Protótipo de assistente de atendimento **em português brasileiro**, com motor em Python e interface desktop Flet. Responde sobre produtos/preços/estoque consultando os CSVs e sobre políticas consultando o manual interno. Consulta pedidos por mensagens, solicitando número e e-mail cadastrado no próprio chat. A aplicação é **somente leitura**: não realiza compras, reservas nem cria chamados.
 
 ## Requisitos
 - Python **3.11+**; acesso ao terminal; conexão para instalar dependências.
@@ -37,7 +37,7 @@ O modelo é chamado **apenas em dúvidas sobre políticas**; preços, descontos,
 - `Tem violão Yamaha?` — lista até cinco produtos correspondentes, com preço, estoque e promoção vigente no CSV.
 - `Vocês vendem cabos?` — explica restrição de catálogo.
 - `Quais são as regras de devolução?` — recupera passagem relevante do manual (no modo OpenAI, gera resposta baseada no trecho).
-- `Qual o andamento do pedido 1?` — solicita e-mail cadastrado; o campo separado na interface permite informar esse dado.
+- `Qual o andamento do pedido 1?` — solicita o e-mail cadastrado na conversa e só consulta após receber os dois dados.
 - `Quero reclamar` — orienta encaminhamento humano, sem declarar abertura de chamado.
 
 ## Arquitetura e justificativas
@@ -146,3 +146,24 @@ Perguntas sobre horário são respondidas por regra explícita do manual (p. 2):
 - Promoções sem mês definido no manual dependem de `is_active=1`. Como os CSVs não possuem datas de início e fim, a validade exata precisa de confirmação antes da compra. Produtos esgotados, descontinuados ou com dados financeiros inválidos não são anunciados como promoções.
 - Sempre informar em **respostas comerciais sobre promoções** que o PIX oferece 5% sobre o preço de tabela de produtos sem promoção e **não é cumulativo** com descontos promocionais. Não aplicar PIX sobre uma promoção já existente.
 - Melhoria futura: adicionar `starts_at` e `ends_at` à fonte de promoções para checagem da vigência exata; preferir ERP/banco com dados sincronizados para atendimento em produção.
+
+
+## Contato e endereço (2026-11-04)
+Perguntas como `como contatar a loja`, `telefone`, `e-mail` e `endereço` têm respostas diretas, sem mostrar trechos aleatórios do manual. Foram confirmados na capa e no cadastro do manual: telefone **(67) 3341-4444**, e-mail **contato@emporiodamusica.com.br** (capa) e endereço **Rua 14 de Maio, 3200 — Centro, Campo Grande - MS, CEP 79202-333**.
+
+**Atenção:** o próprio manual apresenta conflito entre o número indicado como telefone/WhatsApp nas páginas 1–2 e o canal principal de WhatsApp na página 6; além disso, há diferença na grafia do e-mail entre capa e cadastro. O assistente **não anuncia um WhatsApp específico como confirmado** até a loja validar o número. A resposta encaminha para conferência humana. A fonte de contato deverá ser consolidada no manual ou em configuração oficial da loja.
+
+
+## Estilo de atendimento
+O assistente responde como um atendente humano: cordial, descontraído sem perder o profissionalismo, com frases curtas e claras. A resposta de políticas não inicia mais com "No manual da loja consta:" nem encerra com instrução administrativa sobre a gerência. Quando necessário, oferece encaminhamento humano, sem afirmar que a transferência já aconteceu. As páginas do manual continuam disponíveis nas fontes técnicas da interface. No modo sem LLM, a resposta é um trecho curto e fiel à política; reescrita sofisticada depende do provedor LLM.
+
+
+## Consulta de pedidos pelo chat — limitações e segurança
+A interface **não tem mais campo de e-mail separado**. A consulta segue um fluxo simples:
+1. O cliente solicita o andamento de um pedido e informa o número (ou o agente pede o número).
+2. O agente pede o **e-mail cadastrado dentro da própria conversa**.
+3. Só após conferir **número do pedido + e-mail correspondente no cadastro** retorna status, rastreamento e previsão registrados no CSV. Se os dados não corresponderem, a consulta é negada.
+
+Exemplo: `Quero consultar meus pedidos` → `Qual é o número do pedido?` → `1` → `Qual é o e-mail cadastrado?` → `[e-mail informado]`. Também aceita número e e-mail na mesma mensagem.
+
+**Limitação conhecida:** não é possível listar todos os pedidos usando apenas o endereço de e-mail. O agente solicita o número para evitar exposição indiscriminada de pedidos. A combinação **número + e-mail não é autenticação forte**: este fluxo é apenas demonstrativo e não deve ser disponibilizado a clientes reais sem OTP, login/sessão autenticada e autorização por proprietário do pedido. O chat oculta e-mails na exibição das mensagens, mas eles ainda passam pelo processamento local; não devem ser persistidos em logs, compartilhados nem enviados ao LLM. O motor e a interface guardam só a etapa e o número do pedido durante a consulta, nunca o e-mail.

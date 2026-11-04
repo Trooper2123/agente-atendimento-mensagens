@@ -75,9 +75,15 @@ def test_no_duplicate_history(source):
 
 def test_order_privacy(source):
     a = agent(source)
-    assert "e-mail cadastrado" in a.ask("pedido 1").message
-    assert a.ask("pedido 1", email="outro@example.invalid").handoff
-    assert "Pedido 1" in a.ask("pedido 1", email="cliente@example.invalid").message
+    request = a.ask("pedido 1")
+    assert "e-mail cadastrado" in request.message
+    assert request.order_step == "email"
+    denied = a.ask("outro@example.invalid", order_step=request.order_step, order_id=request.order_id)
+    assert denied.handoff and "TESTE123" not in denied.message
+    allowed = a.ask("cliente@example.invalid", order_step=request.order_step, order_id=request.order_id)
+    assert "pedido 1" in allowed.message.lower()
+    assert "TESTE123" in allowed.message
+    assert allowed.order_step is None and allowed.order_id is None
 
 
 def test_complaint_is_prioritized(source):
@@ -365,3 +371,104 @@ def test_seasonal_promotion_not_applied_to_product_outside_month(source, monkeyp
     assert "R$ 1.000,00" in text
     assert "PIX: R$ 950,00" in text
     assert "R$ 900,00" not in text
+
+
+@pytest.mark.parametrize("question", [
+    "como contatar a loja",
+    "contato da loja",
+    "qual o telefone?",
+    "qual o email?",
+])
+def test_contact_questions_return_verified_channels(source, question):
+    reply = agent(source).ask(question, selected_product_id="p1")
+    assert "(67) 3341-4444" in reply.message
+    assert "contato@emporiodamusica.com.br" in reply.message
+    assert "No manual da loja consta:" not in reply.message
+    assert "CSV: products" not in reply.sources
+    assert reply.handoff  # WhatsApp conflitante no manual, confirmação necessária.
+
+
+def test_whatsapp_ambiguity_is_not_hidden(source):
+    reply = agent(source).ask("qual o whatsapp da loja?")
+    assert "precisa ser confirmado" in reply.message
+    assert "(67) 3321-4500" not in reply.message
+    assert reply.handoff
+
+
+def test_address_has_direct_answer(source):
+    reply = agent(source).ask("qual endereço da loja?")
+    assert "Rua 14 de Maio, 3200" in reply.message
+    assert "Campo Grande" in reply.message
+    assert not reply.handoff
+
+
+def test_policy_reply_has_human_tone_without_internal_boilerplate(source):
+    reply = agent(source).ask("Qual é a forma de pagamento?")
+    assert reply.message.startswith("Claro!")
+    assert "desconto de 5%" in reply.message
+    assert "Se tiver alguma dúvida, posso encaminhar você para um atendente humano." in reply.message
+    assert "No manual da loja consta:" not in reply.message
+    assert "Se houver dúvida sobre a aplicação da regra, a gerência deve confirmar." not in reply.message
+    assert reply.sources == ["Manual: p. 3"]
+
+
+def test_short_policy_excerpt_not_cut_midword(source):
+    class LongIndex:
+        def search(self, query, limit=3):
+            return [{"page": 4, "text": "Informação confirmada sobre atendimento. " + "Detalhes complementares. " * 50}]
+    reply = Agent(source, LongIndex(), "mock").ask("Como funciona o atendimento?")
+    assert len(reply.message) < 550
+    assert "Detalhes complementares." in reply.message
+    assert "No manual da loja consta" not in reply.message
+
+
+def test_order_consultation_with_email_inside_chat(source):
+    a = agent(source)
+    first = a.ask("verificar pedidos de cliente@example.invalid")
+    assert first.order_step == "number"
+    assert "número" in first.message.lower()
+    assert "TESTE123" not in first.message
+
+    second = a.ask("1", order_step=first.order_step, order_id=first.order_id)
+    assert second.order_step == "email" and second.order_id == "1"
+    assert "e-mail cadastrado" in second.message
+
+    last = a.ask("cliente@example.invalid", order_step=second.order_step, order_id=second.order_id)
+    assert "TESTE123" in last.message
+    assert last.order_step is None and last.order_id is None
+
+
+def test_order_single_message_with_number_and_email(source):
+    reply = agent(source).ask("Consultar pedido 1 para cliente@example.invalid")
+    assert "TESTE123" in reply.message
+    assert reply.order_step is None
+
+
+def test_order_requires_both_factors_and_does_not_list_by_email(source):
+    a = agent(source)
+    by_email = a.ask("listar meus pedidos cliente@example.invalid")
+    assert by_email.order_step == "number"
+    assert "TESTE123" not in by_email.message
+
+    wrong = a.ask("pedido 1 atacante@example.invalid")
+    assert wrong.handoff
+    assert "TESTE123" not in wrong.message
+
+    # E-mails isolados e não relacionados não consultam pedidos.
+    unrelated = a.ask("cliente@example.invalid")
+    assert "TESTE123" not in unrelated.message
+
+
+def test_complaints_override_pending_order(source):
+    reply = agent(source).ask(
+        "Quero reclamar do pedido 1", order_step="email", order_id="1"
+    )
+    assert reply.handoff
+    assert reply.order_step is None
+    assert "TESTE123" not in reply.message
+
+
+def test_order_context_is_discarded_when_topic_changes(source):
+    reply = agent(source).ask("qual o horário?", order_step="email", order_id="1")
+    assert reply.order_step is None
+    assert "9h" in reply.message
