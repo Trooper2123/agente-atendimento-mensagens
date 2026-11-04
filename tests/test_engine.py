@@ -394,3 +394,23 @@ def test_address_has_direct_answer(source):
     assert "Rua 14 de Maio, 3200" in reply.message
     assert "Campo Grande" in reply.message
     assert not reply.handoff
+
+
+def test_policy_reply_has_human_tone_without_internal_boilerplate(source):
+    reply = agent(source).ask("Qual é a forma de pagamento?")
+    assert reply.message.startswith("Claro!")
+    assert "desconto de 5%" in reply.message
+    assert "Se tiver alguma dúvida, posso encaminhar você para um atendente humano." in reply.message
+    assert "No manual da loja consta:" not in reply.message
+    assert "Se houver dúvida sobre a aplicação da regra, a gerência deve confirmar." not in reply.message
+    assert reply.sources == ["Manual: p. 3"]
+
+
+def test_short_policy_excerpt_not_cut_midword(source):
+    class LongIndex:
+        def search(self, query, limit=3):
+            return [{"page": 4, "text": "Informação confirmada sobre atendimento. " + "Detalhes complementares. " * 50}]
+    reply = Agent(source, LongIndex(), "mock").ask("Como funciona o atendimento?")
+    assert len(reply.message) < 550
+    assert "Detalhes complementares." in reply.message
+    assert "No manual da loja consta" not in reply.message
