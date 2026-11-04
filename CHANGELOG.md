@@ -1,6 +1,10 @@
 # Changelog
 
 ## [Unreleased] — 2026-11-04 (BRT)
+- `feat`: cache em memória restrito a categorias, produtos e promoções; recarga explícita e botão Flet (`src/emporio/data.py`, `src/emporio/app.py`).
+- `fix`: busca de catálogo com singular/plural, filtro de preço e estoque disponível, sem roteamento acidental ao manual (`src/emporio/engine.py`).
+- `test`: testes sintéticos adicionados para categorias, consultas orçamentárias, estoque e recarga (`tests/test_engine.py`).
+- `docs`: README registra funcionamento e limitações do cache.
 - `fix`: caminhos relativos de dados, SQLite, PDF e `.env` resolvidos pela raiz do projeto ou pasta de executável empacotado (`src/emporio/data.py`, `src/emporio/app.py`).
 - `test`: adicionados testes para execução fora da raiz, override de caminho absoluto e modo executável (`tests/test_paths.py`); 26 testes passaram localmente, compilação Python aprovada; interface `.exe` e Ruff não verificados.
 - `docs`: README documenta organização local dos arquivos e execução como `.exe`.

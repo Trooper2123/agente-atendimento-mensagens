@@ -121,3 +121,9 @@ POLICY_PDF=C:/caminho/para/dados/politicas_da_loja.pdf
 ```
 
 O `.env` também deve ficar ao lado do projeto ou, no caso de executável empacotado, ao lado do `.exe`. `pip install -e '.[dev]'` instala o pacote em modo editável, mas **não cria a pasta `data/` nem gera um .exe**. Os arquivos operacionais permanecem locais e não são incluídos nos commits.
+
+
+## Busca de catálogo e cache em memória (2026-11-04)
+A busca reconhece categorias no singular e no plural (`violão/violões`, `guitarra/guitarras`) e filtra expressões como `disponíveis até R$ 1.000` pelo preço vigente. Não mistura a consulta de catálogo com trechos do manual de políticas.
+O adaptador CSV carrega em memória somente `categories`, `products` e `promotions` na primeira consulta, evitando reler esses arquivos em cada mensagem. `customers` e `orders` **não são mantidos nesse cache**, por privacidade.
+As alterações feitas nos CSVs não aparecem automaticamente: pressione **Atualizar catálogo** na interface (ou reinicie). Se a recarga falhar, a versão anterior é preservada. O cache é um snapshot local, **não é estoque em tempo real**; para produção, recomenda-se integração ao ERP/banco, com controle de atualização e concorrência.

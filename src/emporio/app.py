@@ -42,6 +42,17 @@ def main(page: ft.Page):
             history.controls.append(ft.Text("Ocorreu um erro na consulta. Tente novamente ou contate a loja.", color=ft.Colors.RED))
         page.update()
 
+    def reload_catalog(_):
+        try:
+            if hasattr(agent.source, "refresh_catalog"):
+                agent.source.refresh_catalog()
+                history.controls.append(ft.Text("Catálogo atualizado a partir dos CSVs.", color=ft.Colors.GREEN))
+            else:
+                history.controls.append(ft.Text("A fonte atual consulta os dados diretamente.", color=ft.Colors.BLUE_GREY))
+        except (OSError, ValueError, KeyError):
+            history.controls.append(ft.Text("Não foi possível atualizar o catálogo. Os dados anteriores foram mantidos.", color=ft.Colors.RED))
+        page.update()
+
     question.on_submit = submit
     page.add(
         ft.Text("Empório da Música", size=29, weight=ft.FontWeight.BOLD),
@@ -49,6 +60,7 @@ def main(page: ft.Page):
         ft.Container(content=history, border=ft.Border.all(1, ft.Colors.BLUE_GREY_100), border_radius=12, padding=12, expand=True),
         email,
         ft.Row([question, ft.ElevatedButton("Enviar", on_click=submit)]),
+        ft.TextButton("Atualizar catálogo", on_click=reload_catalog),
         ft.Text("Atenção: não realiza compras, reservas, alterações de pedidos nem abertura de chamados.", size=12),
     )
 
