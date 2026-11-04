@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased] — 2026-11-04 (BRT)
+- `fix`: consultas sobre promoções ativas usam CSV, disponibilidade e mês vigente das campanhas sazonais; reforçam desconto PIX de 5% não cumulativo (`src/emporio/engine.py`).
+- `test`: casos de campanhas dentro/fora do mês, promoções inativas, estoque zero, PIX e roteamento (`tests/test_engine.py`).
+- `docs`: documentadas limitações dos CSVs sem datas de vigência e regras sazonais no README.
 - `fix`: responder horários de funcionamento diretamente conforme o manual, inclusive domingos/feriados, sem selecionar trecho inadequado de retrieval (`src/emporio/engine.py`).
 - `test`: cenários de horário de domingo, sábado, dias úteis e pergunta genérica (`tests/test_engine.py`).
 - `docs`: busca de nomes parciais adicionada como melhoria futura no README, sem implementação antecipada.
