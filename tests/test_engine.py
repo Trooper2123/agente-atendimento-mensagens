@@ -1,5 +1,6 @@
 """Testes com dados sintéticos: sem dependência de informações reais de clientes."""
 import csv
+from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -307,3 +308,60 @@ def test_opening_hours_from_manual(source, question, expected):
     assert reply.sources == ["Manual: p. 2"]
     assert "No manual da loja consta" not in reply.message
     assert not reply.handoff
+
+
+def test_current_promotions_route_to_catalog_not_pdf(source, monkeypatch):
+    class FakeDateTime:
+        @classmethod
+        def now(cls, tz):
+            from datetime import datetime
+            return datetime(2026, 11, 4, tzinfo=tz)
+
+    import emporio.engine as engine
+    monkeypatch.setattr(engine, "datetime", FakeDateTime)
+    reply = agent(source).ask("quais as promoções ativas?")
+    assert "Promoções disponíveis neste mês" in reply.message
+    assert "Yamaha" in reply.message and "R$ 900,00" in reply.message
+    assert "5% de desconto" in reply.message
+    assert "não é cumulativo" in reply.message
+    assert "No manual da loja consta" not in reply.message
+    assert reply.sources[0] == "CSV: promotions"
+
+
+def test_campaign_only_in_its_manual_month(source):
+    update_row(source, "promotions", description="Black Friday", is_active="1")
+    a = agent(source)
+    november = a._promotions_response(reference_date=date(2026, 11, 4))
+    august = a._promotions_response(reference_date=date(2026, 8, 4))
+    assert "Yamaha" in november.message
+    assert "Não há promoções" in august.message
+    assert "5% de desconto" in august.message
+
+
+def test_inactive_promotions_not_offered_even_in_campaign_month(source):
+    update_row(source, "promotions", description="Black Friday", is_active="0")
+    reply = agent(source)._promotions_response(reference_date=date(2026, 11, 27))
+    assert "Não há promoções" in reply.message
+    assert "Yamaha" not in reply.message
+    assert "PIX" in reply.message
+
+
+def test_unavailable_product_not_advertised_as_promotion(source):
+    update_row(source, "products", stock_quantity="0")
+    reply = agent(source)._promotions_response(reference_date=date(2026, 11, 4))
+    assert "Não há promoções" in reply.message
+
+
+def test_seasonal_promotion_not_applied_to_product_outside_month(source, monkeypatch):
+    update_row(source, "promotions", description="Aniversário da Loja")
+    class FakeDateTime:
+        @classmethod
+        def now(cls, tz):
+            from datetime import datetime
+            return datetime(2026, 11, 4, tzinfo=tz)
+    import emporio.engine as engine
+    monkeypatch.setattr(engine, "datetime", FakeDateTime)
+    text = agent(source).ask("violão Yamaha").message
+    assert "R$ 1.000,00" in text
+    assert "PIX: R$ 950,00" in text
+    assert "R$ 900,00" not in text
