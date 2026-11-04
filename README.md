@@ -37,7 +37,7 @@ O modelo é chamado **apenas em dúvidas sobre políticas**; preços, descontos,
 - `Tem violão Yamaha?` — lista até cinco produtos correspondentes, com preço, estoque e promoção vigente no CSV.
 - `Vocês vendem cabos?` — explica restrição de catálogo.
 - `Quais são as regras de devolução?` — recupera passagem relevante do manual (no modo OpenAI, gera resposta baseada no trecho).
-- `Qual o andamento do pedido 1?` — solicita o e-mail cadastrado na conversa e só consulta após receber os dois dados.
+- `Qual o andamento do pedido 1?` ou `quantos pedidos tenho na loja?` — consulta pedidos por número ou lista todos os pedidos vinculados ao e-mail cadastrado.
 - `Quero reclamar` — orienta encaminhamento humano, sem declarar abertura de chamado.
 
 ## Arquitetura e justificativas
@@ -159,11 +159,14 @@ O assistente responde como um atendente humano: cordial, descontraído sem perde
 
 
 ## Consulta de pedidos pelo chat — limitações e segurança
-A interface **não tem mais campo de e-mail separado**. A consulta segue um fluxo simples:
-1. O cliente solicita o andamento de um pedido e informa o número (ou o agente pede o número).
-2. O agente pede o **e-mail cadastrado dentro da própria conversa**.
-3. Só após conferir **número do pedido + e-mail correspondente no cadastro** retorna status, rastreamento e previsão registrados no CSV. Se os dados não corresponderem, a consulta é negada.
+A interface **não tem campo de e-mail separado**. A consulta pode ocorrer de duas formas:
+1. **Pedido específico:** O cliente solicita o andamento de um pedido e informa o número (ou o agente pede o número e em seguida o e-mail cadastrado). Só após conferir **número do pedido + e-mail correspondente no cadastro**, o agente retorna status, rastreamento e previsão registrados no CSV. Se os dados não corresponderem, o atendimento é encaminhado para conferência humana.
+2. **Todos os pedidos vinculados a um e-mail:** O cliente pergunta sobre seus pedidos (ex.: `quantos pedidos tenho na loja?` ou `verifique os pedidos relacionados ao e-mail [e-mail]`). O agente solicita o e-mail se ainda não fornecido, busca o cadastro no CSV e retorna a lista de todos os pedidos vinculados (número, status, rastreamento, previsão e notas).
 
-Exemplo: `Quero consultar meus pedidos` → `Qual é o número do pedido?` → `1` → `Qual é o e-mail cadastrado?` → `[e-mail informado]`. Também aceita número e e-mail na mesma mensagem.
+Exemplo conversacional: `quantos pedidos tenho na loja ?` → `Para consultar seus pedidos, por favor me informe o seu e-mail cadastrado.` → `[e-mail informado]` → `Encontrei 2 pedidos relacionados ao seu e-mail: ...`.
+Também aceita consulta direta em uma única mensagem: `verifique os pedidos relacionados ao e-mail cliente@example.com` ou `Consultar pedido 1 para cliente@example.com`.
 
-**Limitação conhecida:** não é possível listar todos os pedidos usando apenas o endereço de e-mail. O agente solicita o número para evitar exposição indiscriminada de pedidos. A combinação **número + e-mail não é autenticação forte**: este fluxo é apenas demonstrativo e não deve ser disponibilizado a clientes reais sem OTP, login/sessão autenticada e autorização por proprietário do pedido. O chat oculta e-mails na exibição das mensagens, mas eles ainda passam pelo processamento local; não devem ser persistidos em logs, compartilhados nem enviados ao LLM. O motor e a interface guardam só a etapa e o número do pedido durante a consulta, nunca o e-mail.
+**Considerações de segurança e LGPD:**
+- O chat oculta e-mails na exibição das mensagens (`[e-mail informado]`), evitando exposição visual na tela.
+- O motor e a interface retêm apenas a etapa e o número do pedido em memória durante o fluxo conversacional, sem persistir o e-mail em logs ou histórico.
+- Em ambiente de produção real, a listagem de pedidos por e-mail isolado **deve ser protegida por autenticação forte** (código OTP enviado por e-mail/SMS ou sessão autenticada do usuário), impedindo que terceiros obtenham relação de compras digitando o endereço de e-mail de outro consumidor.

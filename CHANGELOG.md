@@ -1,6 +1,10 @@
 # Changelog
 
 ## [Unreleased] — 2026-11-04 (BRT)
+- `feat`: verificação de todos os pedidos vinculados a um e-mail específico (consulta direta ou por fluxo conversacional perguntando "quantos pedidos tenho"), retornando contagem, situação, rastreio e notas (`src/emporio/engine.py`).
+- `fix`: fallback para timezone UTC-4 de Campo Grande em ambientes Windows sem o pacote `tzdata` (`src/emporio/engine.py`).
+- `test`: suíte completa com 66 testes cobrindo verificação de múltiplos pedidos por e-mail, e-mail inexistente, e-mail sem pedidos e integridade de isolamento (`tests/test_engine.py`).
+- `docs`: README e AGENTS.md atualizados com o suporte à listagem de pedidos por e-mail e notas de privacidade e conformidade com a LGPD.
 - `fix`: consultas de pedidos via etapas no próprio chat, aceitando número + e-mail na mesma mensagem, sem campo separado no Flet (`engine.py`, `app.py`).
 - `security`: interface mascara endereços de e-mail exibidos e não retém o e-mail no estado da sessão; exige combinação número + e-mail e mantém ressalva sobre autenticação forte.
 - `test`: regressões para consulta sequencial, e-mail incorreto, pedido em uma mensagem, reclamações e mudança de assunto.
@@ -48,5 +52,3 @@
 - `feat`: recuperação lexical das páginas do PDF e engine de consulta de catálogo/pedido (`retrieval.py`, `engine.py`).
 - `feat`: interface local com Flet (`app.py`).
 - `test`: casos unitários de preços, permissões básicas, catálogo e PDF (`tests/test_engine.py`).
-- `docs`: README detalhado, limitações, divulgação do uso de IA e AGENTS.md adaptado.
-- Situação: versão base publicada; correções desenvolvidas na branch `develop`.
