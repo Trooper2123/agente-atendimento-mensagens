@@ -146,3 +146,9 @@ Perguntas sobre horário são respondidas por regra explícita do manual (p. 2):
 - Promoções sem mês definido no manual dependem de `is_active=1`. Como os CSVs não possuem datas de início e fim, a validade exata precisa de confirmação antes da compra. Produtos esgotados, descontinuados ou com dados financeiros inválidos não são anunciados como promoções.
 - Sempre informar em **respostas comerciais sobre promoções** que o PIX oferece 5% sobre o preço de tabela de produtos sem promoção e **não é cumulativo** com descontos promocionais. Não aplicar PIX sobre uma promoção já existente.
 - Melhoria futura: adicionar `starts_at` e `ends_at` à fonte de promoções para checagem da vigência exata; preferir ERP/banco com dados sincronizados para atendimento em produção.
+
+
+## Contato e endereço (2026-11-04)
+Perguntas como `como contatar a loja`, `telefone`, `e-mail` e `endereço` têm respostas diretas, sem mostrar trechos aleatórios do manual. Foram confirmados na capa e no cadastro do manual: telefone **(67) 3341-4444**, e-mail **contato@emporiodamusica.com.br** (capa) e endereço **Rua 14 de Maio, 3200 — Centro, Campo Grande - MS, CEP 79202-333**.
+
+**Atenção:** o próprio manual apresenta conflito entre o número indicado como telefone/WhatsApp nas páginas 1–2 e o canal principal de WhatsApp na página 6; além disso, há diferença na grafia do e-mail entre capa e cadastro. O assistente **não anuncia um WhatsApp específico como confirmado** até a loja validar o número. A resposta encaminha para conferência humana. A fonte de contato deverá ser consolidada no manual ou em configuração oficial da loja.
