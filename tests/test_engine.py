@@ -264,3 +264,30 @@ def test_both_brand_and_model_are_required_for_exact_match(source):
     reply = a.ask("Rozini")
     assert reply.product_id is None
     assert "Rozini" in reply.message
+
+
+def test_brand_ambiguity_does_not_select_wrong_model(source):
+    path = source.directory / "fixture - products.csv"
+    with path.open(encoding="utf-8") as fp:
+        rows = list(csv.DictReader(fp))
+    rows[0].update(name="Rozini RC-104 Nylon Estudante", price_brl="459.90")
+    other = dict(rows[0], product_id="p2", name="Rozini RV-174 Nylon", price_brl="1299.00")
+    with path.open("w", encoding="utf-8", newline="") as fp:
+        writer = csv.DictWriter(fp, fieldnames=rows[0].keys())
+        writer.writeheader()
+        writer.writerows([rows[0], other])
+    source.refresh_catalog()
+
+    a = agent(source)
+    options = a.ask("mais informações sobre o modelo Rozini")
+    assert options.product_id is None
+    assert "RC-104" in options.message and "RV-174" in options.message
+
+    chosen = a.ask("Rozini RC-104")
+    assert chosen.product_id == "p1"
+    assert "RC-104" in chosen.message and "RV-174" not in chosen.message
+
+    followup = a.ask("e quanto custa?", selected_product_id=chosen.product_id)
+    assert followup.product_id == "p1"
+    assert "R$ 459,90" in followup.message
+    assert "R$ 1.299,00" not in followup.message
