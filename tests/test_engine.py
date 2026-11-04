@@ -55,6 +55,7 @@ def update_row(source, table, **changes):
         writer = csv.DictWriter(fp, fieldnames=records[0].keys())
         writer.writeheader()
         writer.writerows(records)
+    source.refresh_catalog()
 
 
 def test_brl():
@@ -148,3 +149,58 @@ def test_accessories(source):
 def test_table_whitelist(source):
     with pytest.raises(ValueError):
         source.rows("../../customers")
+
+
+def test_generic_category_queries_match_csv_category(source):
+    # O nome pode não conter a palavra violão; a categoria contém "Violões".
+    update_row(source, "products", name="Yamaha C40")
+    a = agent(source)
+    for question in ("violão", "Quais modelos de violão estão disponíveis?"):
+        reply = a.ask(question)
+        assert "Yamaha C40" in reply.message
+        assert "No manual da loja" not in reply.message
+
+
+def test_guitarra_singular_matches_plural_category(source):
+    update_row(source, "categories", name="Guitarras")
+    update_row(source, "products", name="Fender Player", category_id="cat1")
+    assert "Fender Player" in agent(source).ask("guitarra").message
+
+
+def test_budget_filters_and_respects_availability(source):
+    a = agent(source)
+    for question in (
+        "Quais opções de violões disponíveis custando até R$1000?",
+        "violão disponível até R$ 1.000,00",
+    ):
+        reply = a.ask(question)
+        assert "Yamaha" in reply.message and "R$ 900,00" in reply.message
+        assert "devolução" not in reply.message
+
+    update_row(source, "products", price_brl="1500.00")
+    reply = a.ask("violões disponíveis até R$1000")
+    assert "não encontrei instrumentos" in reply.message.casefold()
+    assert "Yamaha" not in reply.message
+
+    update_row(source, "products", price_brl="1000.00", stock_quantity="0")
+    assert "não encontrei instrumentos" in a.ask("violões disponíveis até R$1000").message.casefold()
+
+
+def test_catalog_cache_is_snapshot_and_reloadable(source):
+    first = source.rows("products")
+    assert first[0]["stock_quantity"] == "2"
+    path = source.directory / "fixture - products.csv"
+    with path.open(encoding="utf-8") as fp:
+        rows = list(csv.DictReader(fp))
+    rows[0]["stock_quantity"] = "7"
+    with path.open("w", encoding="utf-8", newline="") as fp:
+        writer = csv.DictWriter(fp, fieldnames=rows[0].keys())
+        writer.writeheader()
+        writer.writerows(rows)
+    assert source.rows("products")[0]["stock_quantity"] == "2"
+    source.refresh_catalog()
+    assert source.rows("products")[0]["stock_quantity"] == "7"
+    source.rows("products")[0]["stock_quantity"] = "99"
+    assert source.rows("products")[0]["stock_quantity"] == "7"
+    assert "customers" not in source._catalog
+    assert "orders" not in source._catalog
