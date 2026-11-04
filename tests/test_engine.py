@@ -319,11 +319,11 @@ def test_opening_hours_from_manual(source, question, expected):
 def test_current_promotions_route_to_catalog_not_pdf(source, monkeypatch):
     class FakeDateTime:
         @classmethod
-        def now(cls, tz):
+        def now(cls, tz=None):
             from datetime import datetime
             return datetime(2026, 11, 4, tzinfo=tz)
 
-    import emporio.engine as engine
+    from emporio import engine
     monkeypatch.setattr(engine, "datetime", FakeDateTime)
     reply = agent(source).ask("quais as promoções ativas?")
     assert "Promoções disponíveis neste mês" in reply.message
@@ -362,10 +362,10 @@ def test_seasonal_promotion_not_applied_to_product_outside_month(source, monkeyp
     update_row(source, "promotions", description="Aniversário da Loja")
     class FakeDateTime:
         @classmethod
-        def now(cls, tz):
+        def now(cls, tz=None):
             from datetime import datetime
             return datetime(2026, 11, 4, tzinfo=tz)
-    import emporio.engine as engine
+    from emporio import engine
     monkeypatch.setattr(engine, "datetime", FakeDateTime)
     text = agent(source).ask("violão Yamaha").message
     assert "R$ 1.000,00" in text
@@ -424,16 +424,12 @@ def test_short_policy_excerpt_not_cut_midword(source):
 
 def test_order_consultation_with_email_inside_chat(source):
     a = agent(source)
-    first = a.ask("verificar pedidos de cliente@example.invalid")
-    assert first.order_step == "number"
-    assert "número" in first.message.lower()
+    first = a.ask("qual o andamento do pedido 1?")
+    assert first.order_step == "email" and first.order_id == "1"
+    assert "e-mail cadastrado" in first.message
     assert "TESTE123" not in first.message
 
-    second = a.ask("1", order_step=first.order_step, order_id=first.order_id)
-    assert second.order_step == "email" and second.order_id == "1"
-    assert "e-mail cadastrado" in second.message
-
-    last = a.ask("cliente@example.invalid", order_step=second.order_step, order_id=second.order_id)
+    last = a.ask("cliente@example.invalid", order_step=first.order_step, order_id=first.order_id)
     assert "TESTE123" in last.message
     assert last.order_step is None and last.order_id is None
 
@@ -444,12 +440,71 @@ def test_order_single_message_with_number_and_email(source):
     assert reply.order_step is None
 
 
-def test_order_requires_both_factors_and_does_not_list_by_email(source):
+def test_order_consultation_all_orders_by_email(source):
     a = agent(source)
-    by_email = a.ask("listar meus pedidos cliente@example.invalid")
-    assert by_email.order_step == "number"
-    assert "TESTE123" not in by_email.message
+    # 1. Consulta direta por e-mail com pedidos relacionados
+    reply = a.ask("verifique os pedidos relacionados ao e-mail cliente@example.invalid")
+    assert "TESTE123" in reply.message
+    assert "Pedido 1" in reply.message
+    assert reply.order_step is None
 
+    # 2. Pergunta sobre quantidade -> solicita e-mail -> retorna pedidos do e-mail
+    first = a.ask("quantos pedidos tenho na loja ?")
+    assert first.order_step == "email"
+    assert "e-mail cadastrado" in first.message.lower()
+
+    second = a.ask("cliente@example.invalid", order_step=first.order_step, order_id=first.order_id)
+    assert "TESTE123" in second.message
+    assert "Pedido 1" in second.message
+    assert second.order_step is None
+
+
+def test_order_consultation_multiple_orders_by_email(source):
+    path = source.directory / "fixture - orders.csv"
+    with path.open(encoding="utf-8") as fp:
+        rows = list(csv.DictReader(fp))
+    rows.append({
+        "order_id": "2",
+        "customer_id": "c1",
+        "status": "cancelado",
+        "tracking_code": "",
+        "estimated_delivery": "",
+    })
+    with path.open("w", encoding="utf-8", newline="") as fp:
+        writer = csv.DictWriter(fp, fieldnames=["order_id", "customer_id", "status", "tracking_code", "estimated_delivery"])
+        writer.writeheader()
+        writer.writerows(rows)
+
+    a = agent(source)
+    reply = a.ask("verifique os pedidos relacionados ao e-mail cliente@example.invalid")
+    assert "Encontrei 2 pedidos" in reply.message
+    assert "Pedido 1" in reply.message
+    assert "Pedido 2" in reply.message
+    assert "TESTE123" in reply.message
+    assert "cancelado" in reply.message
+
+
+def test_order_consultation_email_not_found(source):
+    a = agent(source)
+    reply = a.ask("verifique os pedidos relacionados ao e-mail inexistente@example.invalid")
+    assert reply.handoff
+    assert "Não encontrei nenhum cadastro" in reply.message
+
+
+def test_order_consultation_email_without_orders(source):
+    path = source.directory / "fixture - customers.csv"
+    with path.open("a", encoding="utf-8", newline="") as fp:
+        writer = csv.writer(fp)
+        writer.writerow(["c2", "sem.pedidos@example.invalid"])
+
+    a = agent(source)
+    reply = a.ask("verifique os pedidos relacionados ao e-mail sem.pedidos@example.invalid")
+    assert not reply.handoff
+    assert "Não encontrei nenhum pedido vinculado" in reply.message
+
+
+def test_order_wrong_email_denied_and_unrelated_safe(source):
+    a = agent(source)
     wrong = a.ask("pedido 1 atacante@example.invalid")
     assert wrong.handoff
     assert "TESTE123" not in wrong.message
