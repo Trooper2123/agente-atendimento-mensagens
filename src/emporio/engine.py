@@ -6,11 +6,19 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from datetime import date, datetime
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from emporio.data import DataSource
 from emporio.retrieval import PolicyIndex, tokens
+
+
+def _campo_grande_tz():
+    try:
+        return ZoneInfo("America/Campo_Grande")
+    except (KeyError, OSError):
+        from datetime import timedelta, timezone
+        return timezone(timedelta(hours=-4))
 
 
 @dataclass
@@ -119,7 +127,7 @@ class Agent:
         return True  # Promoções sem calendário no CSV dependem de is_active.
 
     def _promotions_response(self, *, reference_date: date | None = None) -> Reply:
-        reference_date = reference_date or datetime.now(ZoneInfo("America/Campo_Grande")).date()
+        reference_date = reference_date or datetime.now(_campo_grande_tz()).date()
         products = {p["product_id"]: p for p in self.source.rows("products")}
         offers = []
         for promo in self.source.rows("promotions"):
@@ -131,7 +139,7 @@ class Agent:
             try:
                 qty = self._valid_stock(product["stock_quantity"])
                 original = self._valid_decimal(product["price_brl"])
-                discount = self._valid_decimal(promo["discount_percent"], max_value=Decimal("100"))
+                discount = self._valid_decimal(promo["discount_percent"], max_value=Decimal(100))
             except (ValueError, KeyError):
                 return Reply(
                     "Não consigo confirmar as promoções agora. Nossa equipe precisa verificar os dados.",
@@ -139,7 +147,7 @@ class Agent:
                 )
             if qty == 0:
                 continue
-            price = original * (Decimal("1") - discount / 100)
+            price = original * (Decimal(1) - discount / 100)
             offers.append(
                 f"• {product['name']}: {brl(price)} "
                 f"(de {brl(original)}, {discount:g}% de desconto); {qty} em estoque."
@@ -189,15 +197,15 @@ class Agent:
             try:
                 qty = self._valid_stock(p["stock_quantity"])
                 price = self._valid_decimal(p["price_brl"])
-                active = [self._valid_decimal(x["discount_percent"], max_value=Decimal("100"))
+                active = [self._valid_decimal(x["discount_percent"], max_value=Decimal(100))
                           for x in promos if x["product_id"] == p["product_id"] and x["is_active"] == "1"
-                          and self._promotion_in_month(x, datetime.now(ZoneInfo("America/Campo_Grande")).month)]
+                          and self._promotion_in_month(x, datetime.now(_campo_grande_tz()).month)]
             except (ValueError, KeyError):
                 return Reply("Não consigo confirmar preço ou estoque deste instrumento. "
                              "Nossa equipe precisa verificar os dados.", ["CSV: products", "CSV: promotions"], True)
             discounted = bool(active and status == "active")
-            discount = max(active) if discounted else Decimal("0")
-            actual_price = price * (Decimal("1") - discount / 100)
+            discount = max(active) if discounted else Decimal(0)
+            actual_price = price * (Decimal(1) - discount / 100)
             if price_limit is not None and actual_price > price_limit:
                 continue
             if only_available and (status != "active" or qty == 0):
@@ -232,35 +240,80 @@ class Agent:
 
     @staticmethod
     def _email_from_text(query: str) -> str | None:
-        match = re.search(r"(?<![\w.+-])[\w.+-]+@[\w.-]+\.[a-z]{2,}(?![\w.-])", query, re.I)
+        match = re.search(r"(?<![\w.+-])[\w.+-]+@[\w.-]+\.[a-z]{2,}(?![\w.-])", query, re.IGNORECASE)
         return match.group(0) if match else None
 
     def _order_response(
         self, query: str, *, order_step: str | None = None, order_id: str | None = None
     ) -> Reply:
-        # Guardar na interface apenas o identificador não sensível, nunca o e-mail.
-        match = re.search(r"\bpedidos?\s*(?:n[º°o.]*\s*)?#?\s*(\d{1,8})\b", query, re.I)
+        # Extrair número de pedido explícito se informado
+        match = re.search(r"\bpedidos?\s*(?:n[º°o.]*\s*)?#?\s*(\d{1,8})\b", query, re.IGNORECASE)
         number = match.group(1) if match else None
-        if not number and order_step == "number":
+        if not number and order_step in ("number", "identify", "email") and not order_id:
             bare = re.fullmatch(r"\s*#?(\d{1,8})\s*", query)
             number = bare.group(1) if bare else None
-        if not number and order_step == "email":
+        if not number and order_step == "email" and order_id:
             number = order_id
 
-        if not number:
+        email = self._email_from_text(query)
+
+        # Se não há número nem e-mail:
+        if not number and not email:
             return Reply(
-                "Claro! Para consultar o andamento, qual é o número do seu pedido? "
-                "Depois vou pedir o e-mail cadastrado.",
-                ["Manual: p. 7"], order_step="number",
+                "Claro! Para consultar seus pedidos, por favor me informe o seu e-mail cadastrado. "
+                "Se preferir consultar um pedido específico, pode informar o número dele.",
+                ["Manual: p. 7"], order_step="email",
             )
 
-        email = self._email_from_text(query)
+        # Se há e-mail, mas não há número de pedido específico:
+        # Consulta TODOS os pedidos relacionados a esse e-mail
+        if not number and email:
+            customer = next(
+                (r for r in self.source.rows("customers")
+                 if r["email"].casefold().strip() == email.casefold().strip()),
+                None,
+            )
+            if not customer:
+                return Reply(
+                    "Não encontrei nenhum cadastro com o e-mail informado. "
+                    "Se quiser, posso encaminhar você para um atendente humano.",
+                    ["CSV: customers"], True,
+                )
+            customer_orders = [
+                r for r in self.source.rows("orders")
+                if r["customer_id"] == customer["customer_id"]
+            ]
+            if not customer_orders:
+                return Reply(
+                    "Não encontrei nenhum pedido vinculado ao e-mail informado.",
+                    ["CSV: orders", "CSV: customers"],
+                )
+            lines = []
+            for ord in customer_orders:
+                info = f"• Pedido {ord['order_id']}: situação {ord['status']}."
+                if ord.get("tracking_code"):
+                    info += f" Código de rastreamento: {ord['tracking_code']}."
+                if ord.get("estimated_delivery"):
+                    info += f" Previsão cadastrada: {ord['estimated_delivery']} (sujeita a atualização)."
+                if ord.get("notes"):
+                    info += f" Observação: {ord['notes']}."
+                lines.append(info)
+            count = len(customer_orders)
+            intro = (
+                f"Encontrei {count} pedidos relacionados ao seu e-mail:\n"
+                if count > 1 else
+                "Encontrei 1 pedido relacionado ao seu e-mail:\n"
+            )
+            return Reply(intro + "\n".join(lines), ["CSV: orders", "CSV: customers"])
+
+        # Se há número, mas não há e-mail:
         if not email:
             return Reply(
                 f"Obrigado! Agora me informe o e-mail cadastrado no pedido {number}, por favor.",
                 ["Manual: p. 7–8"], order_step="email", order_id=number,
             )
 
+        # Se há número E e-mail: consulta o pedido específico
         order = next(
             (r for r in self.source.rows("orders") if r["order_id"] == number), None
         )
@@ -281,6 +334,8 @@ class Agent:
             details += f" Código de rastreamento: {order['tracking_code']}."
         if order.get("estimated_delivery"):
             details += f" Previsão cadastrada: {order['estimated_delivery']} (sujeita a atualização)."
+        if order.get("notes"):
+            details += f" Observação: {order['notes']}."
         return Reply(details, ["CSV: orders", "CSV: customers"])
 
     def ask(
@@ -293,8 +348,8 @@ class Agent:
         norm = self._catalog_words(query)
         order_request = bool({"pedido", "pedidos", "rastreamento", "rastrear"} & norm)
         order_followup = (
-            (order_step == "number" and bool(re.fullmatch(r"\s*#?\d{1,8}\s*", query)))
-            or (order_step == "email" and self._email_from_text(query) is not None)
+            (order_step in ("number", "identify") and bool(re.fullmatch(r"\s*#?\d{1,8}\s*", query)))
+            or (order_step == "email" and (self._email_from_text(query) is not None or bool(re.fullmatch(r"\s*#?\d{1,8}\s*", query))))
         )
         if {"reclamacao", "reclamar", "problema"} & norm:
             reply = Reply(
@@ -308,9 +363,7 @@ class Agent:
         elif {"contato", "contatar", "contactar", "telefone", "ligar", "email",
               "whatsapp", "endereco", "localizacao"} & norm:
             reply = self._contact_response(query)
-        elif {"promocao", "oferta"} & norm and {"ativa", "ativas", "vigente", "vigentes", "agora", "hoje", "mes"} & norm:
-            reply = self._promotions_response()
-        elif {"promocao", "oferta"} & norm and not self._products(query):
+        elif {"promocao", "oferta"} & norm and {"ativa", "ativas", "vigente", "vigentes", "agora", "hoje", "mes"} & norm or {"promocao", "oferta"} & norm and not self._products(query):
             reply = self._promotions_response()
         elif {"horario", "horarios", "funcionamento", "expediente", "abre", "aberto",
               "aberta", "fecha", "fechado", "fechada", "domingo", "domingos",
@@ -324,9 +377,7 @@ class Agent:
             reply = self._product_response(query, selected_product_id=selected_product_id)
         elif {"pix", "pagamento"} & norm:
             reply = self._policy_response(query)
-        elif self._exact_product(query):
-            reply = self._product_response(query, selected_product_id=selected_product_id)
-        elif self._products(query):
+        elif self._exact_product(query) or self._products(query):
             reply = self._product_response(query, selected_product_id=selected_product_id)
         elif {"guitarra", "violao", "baixo", "bateria", "teclado", "piano", "ukulele", "yamaha", "fender", "produto", "preco", "estoque", "promocao", "desconto", "modelo", "disponivel"} & norm:
             reply = self._product_response(query) or Reply("Não encontrei um modelo correspondente no catálogo atual. Qual instrumento ou marca você procura?", ["CSV: products"])
@@ -424,5 +475,5 @@ class Agent:
             if not content:
                 raise ValueError("Resposta vazia do provedor")
             return Reply(content, [f"Manual: p. {p['page']}" for p in passages])
-        except Exception:
+        except Exception:  # noqa: BLE001
             return Reply("Não consegui consultar o modelo agora. Posso encaminhar sua dúvida à equipe; não vou arriscar uma informação incorreta.", [], True)

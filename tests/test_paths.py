@@ -21,7 +21,7 @@ def test_absolute_and_relative_overrides(monkeypatch, tmp_path):
 
 
 def test_frozen_executable_uses_its_directory(monkeypatch, tmp_path):
-    import emporio.data as data
+    from emporio import data
     monkeypatch.setattr(data.sys, "frozen", True, raising=False)
     monkeypatch.setattr(data.sys, "executable", str(tmp_path / "atendimento.exe"))
     assert data.project_root() == tmp_path

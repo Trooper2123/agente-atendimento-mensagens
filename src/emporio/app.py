@@ -19,7 +19,7 @@ def main(page: ft.Page):
     page.scroll = ft.ScrollMode.AUTO
     try:
         agent = Agent(source_from_env(), PolicyIndex(configured_path("POLICY_PDF", "data/politicas_da_loja.pdf")))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         page.add(ft.Text(f"Falha ao carregar dados locais: {exc}", color=ft.Colors.RED))
         return
 
@@ -51,7 +51,7 @@ def main(page: ft.Page):
                 history.controls.append(ft.Text("Fontes: " + "; ".join(reply.sources), size=11, color=ft.Colors.BLUE_GREY))
             if reply.handoff:
                 history.controls.append(ft.Text("Necessário atendimento humano — nenhum chamado foi aberto automaticamente.", size=12, color=ft.Colors.DEEP_ORANGE))
-        except Exception:
+        except Exception:  # noqa: BLE001
             history.controls.append(ft.Text("Ocorreu um erro na consulta. Tente novamente ou contate a loja.", color=ft.Colors.RED))
         page.update()
 
