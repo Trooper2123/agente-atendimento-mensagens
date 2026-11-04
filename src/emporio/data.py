@@ -29,12 +29,14 @@ class DataSource(Protocol):
 
 
 class CSVSource:
+    """Mantém em memória apenas o catálogo, não dados pessoais de clientes."""
+    CATALOG_TABLES = frozenset({"categories", "products", "promotions"})
+
     def __init__(self, directory: str | Path):
         self.directory = Path(directory)
+        self._catalog: dict[str, list[dict[str, str]]] = {}
 
-    def rows(self, table: str) -> list[dict[str, str]]:
-        if table not in TABLES:
-            raise ValueError("Tabela inválida")
+    def _read_file(self, table: str) -> list[dict[str, str]]:
         matches = sorted(self.directory.glob(f"* - {table}.csv"))
         matches += [self.directory / f"{table}.csv"]
         path = next((f for f in matches if f.is_file()), None)
@@ -42,6 +44,20 @@ class CSVSource:
             raise FileNotFoundError(f"CSV não encontrado para {table} em {self.directory}. Verifique DATA_DIR.")
         with path.open(encoding="utf-8-sig", newline="") as fp:
             return list(csv.DictReader(fp))
+
+    def refresh_catalog(self) -> None:
+        """Recarrega catálogo após atualização dos CSVs; mantém a versão antiga se falhar."""
+        new_catalog = {table: self._read_file(table) for table in sorted(self.CATALOG_TABLES)}
+        self._catalog = new_catalog
+
+    def rows(self, table: str) -> list[dict[str, str]]:
+        if table not in TABLES:
+            raise ValueError("Tabela inválida")
+        if table not in self.CATALOG_TABLES:
+            return self._read_file(table)
+        if not self._catalog:
+            self.refresh_catalog()
+        return [dict(row) for row in self._catalog[table]]
 
 
 class SQLiteSource:
