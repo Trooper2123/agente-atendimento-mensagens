@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased] — 2026-11-04 (BRT)
+- `fix`: responder horários de funcionamento diretamente conforme o manual, inclusive domingos/feriados, sem selecionar trecho inadequado de retrieval (`src/emporio/engine.py`).
+- `test`: cenários de horário de domingo, sábado, dias úteis e pergunta genérica (`tests/test_engine.py`).
+- `docs`: busca de nomes parciais adicionada como melhoria futura no README, sem implementação antecipada.
 - `fix`: reconhecimento de marca + código completo do modelo e resposta de PIX por produto com preço/estoque verificáveis (`src/emporio/engine.py`).
 - `feat`: identificador do produto escolhido permanece apenas na sessão visual Flet, sem histórico duplicado (`src/emporio/app.py`).
 - `test`: cenários de conversa Rozini RC-104, desconto PIX, referência isolada e regras de garantia (`tests/test_engine.py`).
