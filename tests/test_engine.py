@@ -210,6 +210,7 @@ def test_exact_model_and_product_followup(source):
     update_row(source, "products", name="Rozini RC-104 Nylon Estudante",
                price_brl="459.90", description="Violão clássico de estudo.",
                stock_quantity="10")
+    update_row(source, "promotions", is_active="0")
     a = agent(source)
     initial = a.ask("Rozini RC-104")
     assert initial.product_id == "p1"
@@ -225,6 +226,7 @@ def test_exact_model_and_product_followup(source):
 def test_pix_on_named_brand_uses_catalog_not_manual(source):
     update_row(source, "products", name="Rozini RC-104 Nylon Estudante",
                price_brl="459.90")
+    update_row(source, "promotions", is_active="0")
     reply = agent(source).ask("verifique desconto pix para o modelo Rozini")
     assert "Rozini RC-104" in reply.message
     assert "R$ 436,91" in reply.message
