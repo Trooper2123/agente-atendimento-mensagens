@@ -113,6 +113,15 @@ class Agent:
         return reply
 
     def _policy_response(self, query: str) -> Reply:
+        words = set(tokens(query))
+        if {"defeito", "defeitos", "garantia"} & words:
+            return Reply("A loja prevê troca por defeito em até 30 dias, mas a garantia legal é de 90 dias "
+                         "a partir do recebimento. Seu caso precisa de avaliação da equipe, sem limitar "
+                         "seus direitos de garantia.", ["Manual: p. 4 e 7"], True)
+        if {"parcelamento", "parcela", "parcelas", "parcelar", "vezes"} & words:
+            return Reply("Parcelamos em até 12 vezes sem juros. O manual apresenta valores mínimos "
+                         "divergentes; nossa equipe precisa confirmar a condição aplicável.",
+                         ["Manual: p. 3"], True)
         passages = self.policies.search(query)
         if not passages:
             return Reply("Não encontrei essa informação nas políticas disponíveis. Posso encaminhar sua dúvida à equipe.", [], True)
