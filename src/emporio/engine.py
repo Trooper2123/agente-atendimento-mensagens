@@ -98,7 +98,7 @@ class Agent:
         matches = []
         for product in self.source.rows("products"):
             code = self._product_code(product["name"])
-            if code and re.search(r"(?<!\\w)" + re.escape(code) + r"(?!\\w)", query_text):
+            if code and re.search(r"(?<!\w)" + re.escape(code) + r"(?!\w)", query_text):
                 matches.append(product)
         return matches[0] if len(matches) == 1 else None
 
@@ -215,8 +215,8 @@ class Agent:
             reply = self._policy_response(query)
         elif self._exact_product(query):
             reply = self._product_response(query, selected_product_id=selected_product_id)
-
-            reply = self._policy_response(query)
+        elif self._products(query):
+            reply = self._product_response(query, selected_product_id=selected_product_id)
         elif {"guitarra", "violao", "baixo", "bateria", "teclado", "piano", "ukulele", "yamaha", "fender", "produto", "preco", "estoque", "promocao", "desconto", "modelo", "disponivel"} & norm:
             reply = self._product_response(query) or Reply("Não encontrei um modelo correspondente no catálogo atual. Qual instrumento ou marca você procura?", ["CSV: products"])
         else:
