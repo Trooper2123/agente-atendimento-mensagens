@@ -18,6 +18,13 @@ Construir e manter um protótipo de assistente de atendimento por mensagens para
 - Para nova fonte de dados, implemente `rows(table)` preservando nomes das seis tabelas e seus campos. Validar IDs e não interpolar valores em SQL.
 - CSVs são snapshots, não um estoque em tempo real. Não executar escrita de pedidos/estoque neste protótipo.
 
+## Tom das respostas
+- Responder como atendente humano: cordial, leve e profissional, sem formalismo excessivo.
+- Respostas diretas, simples e úteis; evitar copiar blocos longos do manual.
+- Nunca usar as expressões "No manual da loja consta:" ou "Se houver dúvida sobre a aplicação da regra, a gerência deve confirmar.".
+- Quando necessário, oferecer: "Se tiver alguma dúvida, posso encaminhar você para um atendente humano.". Não afirmar que um encaminhamento foi feito sem integração real.
+- Referências ao manual ficam nas fontes técnicas, não no texto da resposta ao cliente.
+
 ## Políticas e segurança
 - Desconto PIX: 5% sobre preço de tabela; não acumular com promoção ativa.
 - Estoque: considerar `status` e `stock_quantity`; produto descontinuado não está disponível.
