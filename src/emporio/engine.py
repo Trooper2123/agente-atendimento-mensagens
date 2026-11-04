@@ -104,19 +104,23 @@ class Agent:
             reply = self._order_response(query, email)
         elif {"corda", "cordas", "palheta", "cabo", "cabos", "pedal", "amplificador", "case", "acessorio"} & norm and not ({"violao", "guitarra", "baixo", "instrumento"} & norm):
             reply = Reply("Trabalhamos exclusivamente com instrumentos musicais, não com acessórios como cordas, cabos, palhetas ou amplificadores.", ["Manual: p. 2 e 6"])
+        elif {"pix", "pagamento", "parcelamento", "parcela", "parcelas", "garantia", "devolucao", "arrependimento", "troca", "trocas", "frete"} & norm:
+            reply = self._policy_response(query)
         elif {"guitarra", "violao", "baixo", "bateria", "teclado", "piano", "ukulele", "yamaha", "fender", "produto", "preco", "estoque", "promocao", "desconto"} & norm:
             reply = self._product_response(query) or Reply("Não encontrei um modelo correspondente no catálogo atual. Qual instrumento ou marca você procura?", ["CSV: products"])
         else:
-            passages = self.policies.search(query)
-            if not passages:
-                reply = Reply("Não encontrei essa informação nas políticas disponíveis. Posso encaminhar sua dúvida à equipe.", [], True)
-            elif self.provider == "openai":
-                reply = self._llm(query, passages)
-            else:
-                excerpt = passages[0]["text"][:560]
-                reply = Reply("No manual da loja consta:\n" + excerpt + "\nSe houver dúvida sobre a aplicação da regra, a gerência deve confirmar.",
-                              [f"Manual: p. {p['page']}" for p in passages])
+            reply = self._policy_response(query)
         return reply
+
+    def _policy_response(self, query: str) -> Reply:
+        passages = self.policies.search(query)
+        if not passages:
+            return Reply("Não encontrei essa informação nas políticas disponíveis. Posso encaminhar sua dúvida à equipe.", [], True)
+        if self.provider == "openai":
+            return self._llm(query, passages)
+        excerpt = passages[0]["text"][:560]
+        return Reply("No manual da loja consta:\n" + excerpt + "\nSe houver dúvida sobre a aplicação da regra, a gerência deve confirmar.",
+                     [f"Manual: p. {p['page']}" for p in passages])
 
     def _llm(self, query: str, passages: list[dict]) -> Reply:
         from openai import OpenAI
