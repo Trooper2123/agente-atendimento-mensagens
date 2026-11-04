@@ -24,15 +24,22 @@ def main(page: ft.Page):
     history = ft.ListView(expand=True, spacing=12, auto_scroll=True)
     question = ft.TextField(label="Sua mensagem", hint_text="Ex.: Tem violão Yamaha?", expand=True)
     email = ft.TextField(label="E-mail cadastrado (somente para consultar pedidos)", width=360)
+    selected_product_id: str | None = None  # Apenas referência do item, não histórico de mensagens.
 
     def submit(_):
+        nonlocal selected_product_id
         msg = (question.value or "").strip()
         if not msg:
             return
         history.controls.append(ft.Text(f"Você: {msg}", selectable=True, weight=ft.FontWeight.BOLD))
         question.value = ""
         try:
-            reply = agent.ask(msg, email=(email.value or "").strip() or None)
+            reply = agent.ask(
+                msg, email=(email.value or "").strip() or None,
+                selected_product_id=selected_product_id,
+            )
+            if reply.product_id:
+                selected_product_id = reply.product_id
             history.controls.append(ft.Text(f"Empório: {reply.message}", selectable=True))
             if reply.sources:
                 history.controls.append(ft.Text("Fontes: " + "; ".join(reply.sources), size=11, color=ft.Colors.BLUE_GREY))
