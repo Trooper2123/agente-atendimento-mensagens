@@ -5,7 +5,8 @@ import os
 import re
 import unicodedata
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from emporio.data import DataSource
@@ -40,6 +41,7 @@ class Agent:
             "baterias": "bateria", "teclados": "teclado", "pianos": "piano",
             "ukuleles": "ukulele", "instrumentos": "instrumento",
             "disponiveis": "disponivel", "modelos": "modelo",
+            "promocoes": "promocao", "ofertas": "oferta",
         }
         return {aliases.get(t, t) for t in tokens(value)}
 
@@ -103,6 +105,56 @@ class Agent:
         return matches[0] if len(matches) == 1 else None
 
     @staticmethod
+    def _promotion_in_month(promotion: dict, month: int) -> bool:
+        """Só campanhas com mês definido no manual recebem restrição sazonal."""
+        name = set(tokens(promotion.get("description", "")))
+        if {"black", "friday"} <= name or {"semana", "musico"} <= name:
+            return month == 11
+        if {"aniversario", "loja"} <= name:
+            return month == 8
+        if {"volta", "aulas"} <= name:
+            return month == 2
+        return True  # Promoções sem calendário no CSV dependem de is_active.
+
+    def _promotions_response(self, *, reference_date: date | None = None) -> Reply:
+        reference_date = reference_date or datetime.now(ZoneInfo("America/Campo_Grande")).date()
+        products = {p["product_id"]: p for p in self.source.rows("products")}
+        offers = []
+        for promo in self.source.rows("promotions"):
+            if promo["is_active"] != "1" or not self._promotion_in_month(promo, reference_date.month):
+                continue
+            product = products.get(promo["product_id"])
+            if not product or product["status"] != "active":
+                continue
+            try:
+                qty = self._valid_stock(product["stock_quantity"])
+                original = self._valid_decimal(product["price_brl"])
+                discount = self._valid_decimal(promo["discount_percent"], max_value=Decimal("100"))
+            except (ValueError, KeyError):
+                return Reply(
+                    "Não consigo confirmar as promoções agora. Nossa equipe precisa verificar os dados.",
+                    ["CSV: promotions", "CSV: products"], True,
+                )
+            if qty == 0:
+                continue
+            price = original * (Decimal("1") - discount / 100)
+            offers.append(
+                f"• {product['name']}: {brl(price)} "
+                f"(de {brl(original)}, {discount:g}% de desconto); {qty} em estoque."
+            )
+        if offers:
+            message = "Promoções disponíveis neste mês:\n" + "\n".join(offers[:10])
+        else:
+            message = "Não há promoções ativas e disponíveis confirmadas para este mês."
+        message += (
+            "\nNo PIX, oferecemos 5% de desconto sobre o preço de tabela "
+            "de produtos sem promoção. O desconto PIX não é cumulativo com promoções."
+            "\nA base de promoções não informa datas de início e fim; "
+            "a validade deve ser confirmada antes da compra."
+        )
+        return Reply(message, ["CSV: promotions", "CSV: products", "Manual: p. 3 e 6"])
+
+    @staticmethod
     def _valid_decimal(raw: str, *, max_value: Decimal | None = None) -> Decimal:
         try:
             value = Decimal(str(raw))
@@ -136,7 +188,8 @@ class Agent:
                 qty = self._valid_stock(p["stock_quantity"])
                 price = self._valid_decimal(p["price_brl"])
                 active = [self._valid_decimal(x["discount_percent"], max_value=Decimal("100"))
-                          for x in promos if x["product_id"] == p["product_id"] and x["is_active"] == "1"]
+                          for x in promos if x["product_id"] == p["product_id"] and x["is_active"] == "1"
+                          and self._promotion_in_month(x, datetime.now(ZoneInfo("America/Campo_Grande")).month)]
             except (ValueError, KeyError):
                 return Reply("Não consigo confirmar preço ou estoque deste instrumento. "
                              "Nossa equipe precisa verificar os dados.", ["CSV: products", "CSV: promotions"], True)
@@ -199,7 +252,11 @@ class Agent:
         if not query:
             return Reply("Como posso ajudar com nossos instrumentos?", [])
         norm = self._catalog_words(query)
-        if {"horario", "horarios", "funcionamento", "expediente", "abre", "aberto", "aberta", "fecha", "fechado", "fechada", "domingo", "domingos", "sabado", "sabados", "feriado", "feriados"} & norm:
+        if {"promocao", "oferta"} & norm and {"ativa", "ativas", "vigente", "vigentes", "agora", "hoje", "mes"} & norm:
+            reply = self._promotions_response()
+        elif {"promocao", "oferta"} & norm and not self._products(query):
+            reply = self._promotions_response()
+        elif {"horario", "horarios", "funcionamento", "expediente", "abre", "aberto", "aberta", "fecha", "fechado", "fechada", "domingo", "domingos", "sabado", "sabados", "feriado", "feriados"} & norm:
             reply = self._hours_response(query)
         elif {"reclamacao", "reclamar", "problema"} & norm:
             reply = Reply("Sinto muito pelo ocorrido. Vou indicar o encaminhamento para nossa equipe responsável. "
