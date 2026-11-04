@@ -1,4 +1,6 @@
 """Interface local de chat com Flet (sem envio a canais externos)."""
+import re
+
 import flet as ft
 from dotenv import load_dotenv
 
@@ -23,21 +25,25 @@ def main(page: ft.Page):
 
     history = ft.ListView(expand=True, spacing=12, auto_scroll=True)
     question = ft.TextField(label="Sua mensagem", hint_text="Ex.: Tem violão Yamaha?", expand=True)
-    email = ft.TextField(label="E-mail cadastrado (somente para consultar pedidos)", width=360)
     selected_product_id: str | None = None  # Apenas referência do item, não histórico de mensagens.
+    order_step: str | None = None
+    order_id: str | None = None
 
     def submit(_):
-        nonlocal selected_product_id
+        nonlocal selected_product_id, order_step, order_id
         msg = (question.value or "").strip()
         if not msg:
             return
-        history.controls.append(ft.Text(f"Você: {msg}", selectable=True, weight=ft.FontWeight.BOLD))
+        # Evita expor e-mail na conversa visível, inclusive em mensagens com pedido.
+        displayed = re.sub(r"[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}", "[e-mail informado]", msg)
+        history.controls.append(ft.Text(f"Você: {displayed}", selectable=True, weight=ft.FontWeight.BOLD))
         question.value = ""
         try:
             reply = agent.ask(
-                msg, email=(email.value or "").strip() or None,
-                selected_product_id=selected_product_id,
+                msg, selected_product_id=selected_product_id,
+                order_step=order_step, order_id=order_id,
             )
+            order_step, order_id = reply.order_step, reply.order_id
             if reply.product_id:
                 selected_product_id = reply.product_id
             history.controls.append(ft.Text(f"Empório: {reply.message}", selectable=True))
@@ -65,7 +71,6 @@ def main(page: ft.Page):
         ft.Text("Empório da Música", size=29, weight=ft.FontWeight.BOLD),
         ft.Text("Assistente demonstrativo • preços e disponibilidade consultados nos arquivos locais"),
         ft.Container(content=history, border=ft.Border.all(1, ft.Colors.BLUE_GREY_100), border_radius=12, padding=12, expand=True),
-        email,
         ft.Row([question, ft.Button("Enviar", on_click=submit)]),
         ft.TextButton("Atualizar catálogo", on_click=reload_catalog),
         ft.Text("Atenção: não realiza compras, reservas, alterações de pedidos nem abertura de chamados.", size=12),
@@ -77,4 +82,4 @@ def run():
 
 
 if __name__ == "__main__":
-    run(main)
+    run()
