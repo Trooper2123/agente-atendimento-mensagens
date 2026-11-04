@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased] — 2026-11-04 (BRT)
+- `refactor`: substituído `import fitz` por `import pymupdf` na recuperação de políticas (`src/emporio/retrieval.py`).
+- `test`: adicionada validação de leitura de PDF com PyMuPDF (`tests/test_retrieval.py`).
 - `feat`: cache em memória restrito a categorias, produtos e promoções; recarga explícita e botão Flet (`src/emporio/data.py`, `src/emporio/app.py`).
 - `fix`: busca de catálogo com singular/plural, filtro de preço e estoque disponível, sem roteamento acidental ao manual (`src/emporio/engine.py`).
 - `test`: testes sintéticos adicionados para categorias, consultas orçamentárias, estoque e recarga (`tests/test_engine.py`).
