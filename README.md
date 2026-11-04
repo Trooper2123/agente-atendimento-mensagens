@@ -70,6 +70,8 @@ python -m ruff check .
 ```
 Testes cobrem formatação de BRL, produto, proteção de pedido por e-mail, acessórios, prevenção de path traversal em tabelas e recuperação do PDF. A verificação de e-mail é apenas barreira básica de demonstração — **não é autenticação forte**. Para uso externo, exigir OTP/login, sessões, autorização por cliente, auditoria e gestão de consentimento.
 
+Sessões e diálogos de teste conversacionais (incluindo consultas por e-mail, direcionamento telefônico e políticas) estão documentados em [TEST_LOGS.md](TEST_LOGS.md).
+
 ## Limitações conhecidas e evolução
 - CSV é snapshot; não garante estoque/preço em tempo real nem validade temporal de promoções (`is_active` sem datas). Não há integração com ERP, WhatsApp Business API, gateways ou atendimento humano real.
 - Busca de produtos por tokens é simples; nomes com sinônimos, marcas não previstas ou pedidos genéricos podem falhar. Classificação por regras pode identificar intenções ambiguamente.
