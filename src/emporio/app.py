@@ -1,16 +1,14 @@
 """Interface local de chat com Flet (sem envio a canais externos)."""
-import os
-
 import flet as ft
 from dotenv import load_dotenv
 
-from emporio.data import source_from_env
+from emporio.data import configured_path, project_root, source_from_env
 from emporio.engine import Agent
 from emporio.retrieval import PolicyIndex
 
 
 def main(page: ft.Page):
-    load_dotenv()
+    load_dotenv(project_root() / ".env")
     page.title = "Empório da Música | Atendimento"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.padding = 20
@@ -18,7 +16,7 @@ def main(page: ft.Page):
     page.window_height = 720
     page.scroll = ft.ScrollMode.AUTO
     try:
-        agent = Agent(source_from_env(), PolicyIndex(os.getenv("POLICY_PDF", "data/politicas_da_loja.pdf")))
+        agent = Agent(source_from_env(), PolicyIndex(configured_path("POLICY_PDF", "data/politicas_da_loja.pdf")))
     except Exception as exc:
         page.add(ft.Text(f"Falha ao carregar dados locais: {exc}", color=ft.Colors.RED))
         return
