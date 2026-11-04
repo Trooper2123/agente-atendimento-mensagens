@@ -18,7 +18,7 @@ python -m pip install -e '.[dev]'
 cp .env.example .env  # Windows: copy .env.example .env
 python -m emporio.app
 ```
-**Importante:** o repositório contém código e testes sintéticos. Arquivos privados do negócio precisam ser fornecidos localmente em `data/` (não versionar). Os caminhos `data/` são relativos à pasta raiz do projeto: execute os comandos a partir dela.
+**Importante:** o repositório contém código e testes sintéticos. Arquivos privados do negócio precisam ser fornecidos localmente em `data/` (não versionar). Os caminhos relativos de `DATA_DIR`, `POLICY_PDF` e `SQLITE_PATH` são resolvidos pela raiz do projeto (ou pela pasta do `.exe` empacotado), independentemente de onde o programa foi iniciado.
 
 A configuração é feita no `.env`:
 ```dotenv
@@ -95,3 +95,29 @@ Este projeto foi elaborado com assistência do **ChatGPT (OpenAI, GPT-6)** para 
 - O motor não retém perguntas e respostas: o histórico visual permanece apenas no Flet.
 
 **Privacidade:** o repositório público já teve CSVs de clientes e manual interno versionados no histórico anterior. O .gitignore ou a exclusão na árvore atual não removem cópias históricas. A limpeza integral exigirá procedimento próprio de reescrita coordenada de histórico, com avaliação de impacto e rotação de credenciais caso necessário.
+
+
+## Arquivos de dados locais e execução como .exe
+Os arquivos privados devem permanecer **fora do Git**, dentro da pasta `data/` ao lado do projeto:
+
+```text
+agente-atendimento-mensagens/
+├── data/
+│   ├── politicas_da_loja.pdf
+│   ├── desafio_tecnico_ai_eng - categories.csv
+│   ├── desafio_tecnico_ai_eng - customers.csv
+│   ├── desafio_tecnico_ai_eng - order_items.csv
+│   ├── desafio_tecnico_ai_eng - orders.csv
+│   ├── desafio_tecnico_ai_eng - products.csv
+│   └── desafio_tecnico_ai_eng - promotions.csv
+└── .env
+```
+
+Após atualizar a branch `develop`, a aplicação procura `data/` na **raiz do projeto**, independentemente da pasta em que o terminal estiver aberto. Em executáveis Python marcados como `frozen`, procura a pasta `data/` **ao lado do executável**. Se os arquivos estiverem em outro lugar, defina caminhos **absolutos** no `.env`:
+
+```dotenv
+DATA_DIR=C:/caminho/para/dados
+POLICY_PDF=C:/caminho/para/dados/politicas_da_loja.pdf
+```
+
+O `.env` também deve ficar ao lado do projeto ou, no caso de executável empacotado, ao lado do `.exe`. `pip install -e '.[dev]'` instala o pacote em modo editável, mas **não cria a pasta `data/` nem gera um .exe**. Os arquivos operacionais permanecem locais e não são incluídos nos commits.
