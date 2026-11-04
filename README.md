@@ -18,7 +18,7 @@ python -m pip install -e '.[dev]'
 cp .env.example .env  # Windows: copy .env.example .env
 python -m emporio.app
 ```
-**Importante:** o clone só terá esses arquivos após aprovação e publicação. Para executar o pacote entregue localmente, extraia-o e entre na pasta. Os caminhos `data/` são relativos à pasta raiz do projeto: execute os comandos a partir dela.
+**Importante:** o repositório contém código e testes sintéticos. Arquivos privados do negócio precisam ser fornecidos localmente em `data/` (não versionar). Os caminhos `data/` são relativos à pasta raiz do projeto: execute os comandos a partir dela.
 
 A configuração é feita no `.env`:
 ```dotenv
@@ -50,7 +50,7 @@ O modelo é chamado **apenas em dúvidas sobre políticas**; preços, descontos,
 | Consulta determinística de negócios | O LLM não cria preços, frete, estoque, status nem códigos de rastreio. Promoções consideram `is_active`; desconto PIX só sobre preço sem promoção. |
 | Prompt com contexto recuperado | Orientação de tom, fontes delimitadas, proibição de inventar e aviso para escalar conflitos; não há fine-tuning nem memória durável. |
 | Fallback seguro | Erro no provedor não vira resposta fabricada; encaminha para atendimento humano. |
-| Histórico limitado em memória | Mantém a sessão simples; dados não são persistidos. O exemplo atual não envia histórico anterior ao modelo. |
+| Histórico de conversa | Somente a interface Flet mantém mensagens visíveis durante a sessão; o motor não guarda histórico. |
 
 ### Fluxo
 `Flet -> Agent.ask -> classificador por regras -> {CSVSource/SQLiteSource, PolicyIndex} -> resposta determinística ou OpenAI -> UI + indicação de fontes`
@@ -75,12 +75,23 @@ Testes cobrem formatação de BRL, produto, proteção de pedido por e-mail, ace
 - Busca de produtos por tokens é simples; nomes com sinônimos, marcas não previstas ou pedidos genéricos podem falhar. Classificação por regras pode identificar intenções ambiguamente.
 - O índice do PDF é recriado na inicialização; a recuperação lexical pode retornar trechos pouco relacionados. Validar qualidade com conjunto de perguntas de avaliação antes de produção.
 - Respostas do modo OpenAI não têm verificador automático de entailment; não devem ser usadas para decisões legais sem supervisão.
-- O protótipo mantém histórico em memória somente; o provedor recebe a pergunta e trechos do manual (não recebe o e-mail em consultas de pedido, pois estas são determinísticas).
+- Somente a interface Flet mantém a conversa visual durante a sessão; o motor não guarda mensagens. O provedor recebe a pergunta e trechos do manual (não recebe o e-mail em consultas de pedido, pois estas são determinísticas).
 - E-mail + número do pedido não substituem autenticação real. Não usar em ambiente publicamente acessível sem controles adicionais.
 - Com mais tempo: autenticação OTP, integração transacional/ERP, ingestão de Excel, testes end-to-end da UI, melhor avaliação RAG, observabilidade sem PII, implantação com CI e human handoff efetivo.
 
 ## Histórico Git e aprovação
-Evolução recomendada, **com commits reais e separados depois da aprovação**: `chore: estrutura e configuração`; `feat: adaptadores CSV e SQLite`; `feat: retrieval e motor de atendimento`; `feat: interface Flet`; `test: cenários e documentação`. Não fazer force-push e não reescrever histórico para aparentar trabalho incremental. Este pacote é uma preparação local; **ainda não foi enviado ao repositório**.
+Evolução recomendada, **com commits reais e separados depois da aprovação**: `chore: estrutura e configuração`; `feat: adaptadores CSV e SQLite`; `feat: retrieval e motor de atendimento`; `feat: interface Flet`; `test: cenários e documentação`. Não fazer force-push e não reescrever histórico para aparentar trabalho incremental. As correções estão sendo desenvolvidas na branch `develop`, em commits separados.
 
 ## Uso de assistentes de código
 Este projeto foi elaborado com assistência do **ChatGPT (OpenAI, GPT-6)** para revisão do manual/CSV, proposta de arquitetura, redação inicial de código, testes e documentação. As escolhas técnicas, o conteúdo do repositório e qualquer publicação devem ser revisados e aprovados pelo responsável humano. Nenhum resultado de execução deve ser apresentado como validado sem rodar o respectivo comando. Não inserir dados de clientes em prompts externos; o modo OpenAI envia apenas a pergunta de política e os trechos recuperados.
+
+
+## Correções de atendimento — 2026-11-04
+- Reclamações, inclusive sobre pedidos, priorizam encaminhamento humano.
+- Dúvidas sobre PIX, pagamento e garantia são tratadas como políticas, não busca de produtos.
+- Garantia legal de 90 dias e conflito de parcelamento são explicitados nos dois modos, sem depender de LLM.
+- Preço negativo/não finito, desconto fora de 0–100% e estoque inválido bloqueiam a oferta.
+- Testes usam dados sintéticos e verificam promoção ativa/inativa, PIX não cumulativo, estoque zero e descontinuação.
+- O motor não retém perguntas e respostas: o histórico visual permanece apenas no Flet.
+
+**Privacidade:** o repositório público já teve CSVs de clientes e manual interno versionados no histórico anterior. O .gitignore ou a exclusão na árvore atual não removem cópias históricas. A limpeza integral exigirá procedimento próprio de reescrita coordenada de histórico, com avaliação de impacto e rotação de credenciais caso necessário.
