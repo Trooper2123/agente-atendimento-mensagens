@@ -1,6 +1,10 @@
 # Changelog
 
 ## [Unreleased] — 2026-11-04 (BRT)
+- `fix`: reconhecimento de marca + código completo do modelo e resposta de PIX por produto com preço/estoque verificáveis (`src/emporio/engine.py`).
+- `feat`: identificador do produto escolhido permanece apenas na sessão visual Flet, sem histórico duplicado (`src/emporio/app.py`).
+- `test`: cenários de conversa Rozini RC-104, desconto PIX, referência isolada e regras de garantia (`tests/test_engine.py`).
+- `docs`: registrada estratégia de contexto mínimo e limites no README.
 - `refactor`: substituído `import fitz` por `import pymupdf` na recuperação de políticas (`src/emporio/retrieval.py`).
 - `test`: adicionada validação de leitura de PDF com PyMuPDF (`tests/test_retrieval.py`).
 - `feat`: cache em memória restrito a categorias, produtos e promoções; recarga explícita e botão Flet (`src/emporio/data.py`, `src/emporio/app.py`).
