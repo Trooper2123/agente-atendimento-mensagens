@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased] — 2026-11-04 (BRT)
+- `security`: adicionada regra `data/` ao `.gitignore` e excluídos da árvore atual os seis CSVs operacionais e o PDF interno na branch `develop` (`.gitignore`, `data/*`). Os objetos continuam no histórico público antigo e na branch `main`.
+- `test`: suíte equivalente local com 23 testes aprovada; compilação Python aprovada. Ruff não instalado, verificação pendente.
 - `refactor`: removido histórico duplicado sem uso (`src/emporio/engine.py`).
 - `fix`: reclamações sobre pedidos recebem encaminhamento humano (`src/emporio/engine.py`).
 - `fix`: perguntas de PIX/garantia passam pelo fluxo de políticas (`src/emporio/engine.py`).
