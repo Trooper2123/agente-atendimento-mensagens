@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import re
+import unicodedata
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -31,17 +32,51 @@ class Agent:
         if self.provider not in ("mock", "openai"):
             raise ValueError("MODEL_PROVIDER deve ser mock ou openai")
 
+    @staticmethod
+    def _catalog_words(value: str) -> set[str]:
+        aliases = {
+            "violoes": "violao", "guitarras": "guitarra", "baixos": "baixo",
+            "baterias": "bateria", "teclados": "teclado", "pianos": "piano",
+            "ukuleles": "ukulele", "instrumentos": "instrumento",
+            "disponiveis": "disponivel", "modelos": "modelo",
+        }
+        return {aliases.get(t, t) for t in tokens(value)}
+
+    @staticmethod
+    def _max_price(query: str) -> Decimal | None:
+        normalized = unicodedata.normalize("NFKD", query.casefold())
+        normalized = "".join(c for c in normalized if not unicodedata.combining(c))
+        found = re.search(r"(?:ate|no maximo|abaixo de|menos de)\s*(?:r\$\s*)?([\d.,]+)", normalized)
+        if not found:
+            return None
+        raw = found.group(1).rstrip(".,")
+        if "," in raw:
+            raw = raw.replace(".", "").replace(",", ".")
+        elif raw.count(".") > 1 or (raw.count(".") == 1 and len(raw.split(".")[1]) == 3):
+            raw = raw.replace(".", "")
+        try:
+            value = Decimal(raw)
+        except InvalidOperation:
+            return None
+        return value if value.is_finite() and value >= 0 else None
+
     def _products(self, query: str) -> list[dict]:
-        query_words = set(tokens(query)) - {"produto", "instrumento", "preco", "estoque", "quanto", "custa", "comprar", "disponivel", "disponibilidade", "promocao", "desconto", "gostaria", "buscar", "mostrar", "procurando"}
-        categories = {row["category_id"]: row["name"] for row in self.source.rows("categories")}
+        generic = {
+            "produto", "instrumento", "preco", "estoque", "quanto", "custa",
+            "custando", "comprar", "disponivel", "disponibilidade", "promocao",
+            "desconto", "gostaria", "buscar", "mostrar", "procurando", "modelo",
+            "opcoes", "opcao", "ate", "reais", "r", "valor", "lista",
+        }
+        query_words = {w for w in self._catalog_words(query) if not w.isdigit()} - generic
+        categories = {r["category_id"]: r["name"] for r in self.source.rows("categories")}
         ranked = []
-        for p in self.source.rows("products"):
-            words = set(tokens(p["name"] + " " + categories.get(p["category_id"], "")))
+        for product in self.source.rows("products"):
+            words = self._catalog_words(product["name"] + " " + categories.get(product["category_id"], ""))
             overlap = len(query_words & words)
             if overlap:
-                ranked.append((overlap, p))
-        ranked.sort(key=lambda x: (-x[0], x[1]["name"]))
-        return [p for _, p in ranked[:5]]
+                ranked.append((overlap, product))
+        ranked.sort(key=lambda item: (-item[0], item[1]["name"]))
+        return [product for _, product in ranked]
 
     @staticmethod
     def _valid_decimal(raw: str, *, max_value: Decimal | None = None) -> Decimal:
@@ -64,6 +99,8 @@ class Agent:
         if not matched:
             return None
         promos = self.source.rows("promotions")
+        price_limit = self._max_price(query)
+        only_available = "disponivel" in self._catalog_words(query) or "estoque" in self._catalog_words(query)
         lines = []
         for p in matched:
             status = p["status"]
@@ -75,21 +112,31 @@ class Agent:
             except (ValueError, KeyError):
                 return Reply("Não consigo confirmar preço ou estoque deste instrumento. "
                              "Nossa equipe precisa verificar os dados.", ["CSV: products", "CSV: promotions"], True)
+            discounted = bool(active and status == "active")
+            discount = max(active) if discounted else Decimal("0")
+            actual_price = price * (Decimal("1") - discount / 100)
+            if price_limit is not None and actual_price > price_limit:
+                continue
+            if only_available and (status != "active" or qty == 0):
+                continue
             if status == "discontinued":
                 availability = "descontinuado"
             elif status != "active":
                 availability = "não disponível para venda no momento"
             else:
                 availability = f"{qty} em estoque" if qty > 0 else "temporariamente esgotado"
-            if active and status == "active":
-                discount = max(active)
-                final = price * (Decimal("1") - discount / 100)
-                pricing = f"{brl(final)} (de {brl(price)}, {discount:g}% de desconto; sem PIX adicional)"
+            if discounted:
+                pricing = f"{brl(actual_price)} (de {brl(price)}, {discount:g}% de desconto; sem PIX adicional)"
             else:
                 pricing = f"{brl(price)} (PIX: {brl(price * Decimal('0.95'))} se elegível)"
             lines.append(f"• {p['name']}: {pricing}; {availability}.")
-        return Reply("Encontrei estas opções no catálogo:\n" + "\n".join(lines)
-                     + "\nPosso ajudar a comparar os modelos?",
+            if len(lines) == 5:
+                break
+        if not lines:
+            return Reply("Não encontrei instrumentos que atendam aos filtros de preço e disponibilidade. "
+                         "Quer tentar outra faixa de valor?", ["CSV: products", "CSV: promotions"])
+        return Reply("Temos estas opções:\n" + "\n".join(lines)
+                     + "\nQuer mais detalhes de algum modelo?",
                      ["CSV: products", "CSV: promotions", "Manual: p. 3 e 6"])
 
     def _order_response(self, query: str, email: str | None) -> Reply:
@@ -115,7 +162,7 @@ class Agent:
         query = message.strip()[:1500]
         if not query:
             return Reply("Como posso ajudar com nossos instrumentos?", [])
-        norm = set(tokens(query))
+        norm = self._catalog_words(query)
         if {"reclamacao", "reclamar", "problema"} & norm:
             reply = Reply("Sinto muito pelo ocorrido. Vou indicar o encaminhamento para nossa equipe responsável. "
                           "O retorno previsto no manual é de até 24 horas úteis; "
@@ -126,7 +173,7 @@ class Agent:
             reply = Reply("Trabalhamos exclusivamente com instrumentos musicais, não com acessórios como cordas, cabos, palhetas ou amplificadores.", ["Manual: p. 2 e 6"])
         elif {"pix", "pagamento", "parcelamento", "parcela", "parcelas", "garantia", "devolucao", "arrependimento", "troca", "trocas", "frete"} & norm:
             reply = self._policy_response(query)
-        elif {"guitarra", "violao", "baixo", "bateria", "teclado", "piano", "ukulele", "yamaha", "fender", "produto", "preco", "estoque", "promocao", "desconto"} & norm:
+        elif {"guitarra", "violao", "baixo", "bateria", "teclado", "piano", "ukulele", "yamaha", "fender", "produto", "preco", "estoque", "promocao", "desconto", "modelo", "disponivel"} & norm:
             reply = self._product_response(query) or Reply("Não encontrei um modelo correspondente no catálogo atual. Qual instrumento ou marca você procura?", ["CSV: products"])
         else:
             reply = self._policy_response(query)
