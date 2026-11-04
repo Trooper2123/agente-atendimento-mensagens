@@ -138,3 +138,11 @@ Os preços seguem a regra de não cumulatividade: uma promoção ativa impede o 
 
 ## Horário de funcionamento
 Perguntas sobre horário são respondidas por regra explícita do manual (p. 2): segunda a sexta, 9h–18h; sábado, 9h–13h; domingos e feriados, fechado. Datas especiais podem alterar o horário e exigem confirmação; este protótipo não consulta calendário de exceções.
+
+
+## Promoções vigentes e desconto PIX (2026-11-04)
+- Perguntas como `quais as promoções ativas?` consultam `promotions.csv` e `products.csv`; campanhas descritas no PDF **não** são anunciadas como ofertas vigentes sem confirmação nos dados.
+- O mês de referência é o da consulta, no fuso **America/Campo_Grande**. Campanhas sazonais previstas no manual são limitadas aos seus meses: Aniversário da Loja em agosto, Volta às Aulas em fevereiro, Black Friday e Semana do Músico em novembro.
+- Promoções sem mês definido no manual dependem de `is_active=1`. Como os CSVs não possuem datas de início e fim, a validade exata precisa de confirmação antes da compra. Produtos esgotados, descontinuados ou com dados financeiros inválidos não são anunciados como promoções.
+- Sempre informar em **respostas comerciais sobre promoções** que o PIX oferece 5% sobre o preço de tabela de produtos sem promoção e **não é cumulativo** com descontos promocionais. Não aplicar PIX sobre uma promoção já existente.
+- Melhoria futura: adicionar `starts_at` e `ends_at` à fonte de promoções para checagem da vigência exata; preferir ERP/banco com dados sincronizados para atendimento em produção.
